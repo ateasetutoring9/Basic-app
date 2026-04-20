@@ -1,0 +1,53 @@
+{
+  "title": "Solving Linear Equations — Practice",
+  "questions": [
+    {
+      "type": "numeric",
+      "id": "q1",
+      "text": "Solve: x - 7 = 15. What is x?",
+      "answer": 22,
+      "tolerance": 0.01,
+      "explanation": "Add 7 to both sides: x = 15 + 7 = 22."
+    },
+    {
+      "type": "numeric",
+      "id": "q2",
+      "text": "Solve: 5x = 45. What is x?",
+      "answer": 9,
+      "tolerance": 0.01,
+      "explanation": "Divide both sides by 5: x = 45 / 5 = 9."
+    },
+    {
+      "type": "numeric",
+      "id": "q3",
+      "text": "Solve: 2x + 7 = 19. What is x?",
+      "answer": 6,
+      "tolerance": 0.01,
+      "explanation": "Step 1: subtract 7 — 2x = 12. Step 2: divide by 2 — x = 6."
+    },
+    {
+      "type": "numeric",
+      "id": "q4",
+      "text": "Solve: 3x - 4 = 11. What is x?",
+      "answer": 5,
+      "tolerance": 0.01,
+      "explanation": "Step 1: add 4 — 3x = 15. Step 2: divide by 3 — x = 5."
+    },
+    {
+      "type": "numeric",
+      "id": "q5",
+      "text": "Solve: x/4 + 3 = 7. What is x?",
+      "answer": 16,
+      "tolerance": 0.01,
+      "explanation": "Step 1: subtract 3 — x/4 = 4. Step 2: multiply by 4 — x = 16."
+    },
+    {
+      "type": "numeric",
+      "id": "q6",
+      "text": "Solve: 4x + 1 = 2x + 9. What is x?",
+      "answer": 4,
+      "tolerance": 0.01,
+      "explanation": "Collect x terms: 4x - 2x = 9 - 1, so 2x = 8, x = 4."
+    }
+  ]
+}

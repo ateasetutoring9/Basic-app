@@ -1,0 +1,45 @@
+{
+  "title": "Introduction to Algebra — Practice",
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "id": "q1",
+      "text": "In the expression 5y + 9, what is the coefficient of y?",
+      "options": ["9", "5", "y", "14"],
+      "answer": 1,
+      "explanation": "The coefficient is the number multiplied by the variable. In 5y, the coefficient is 5."
+    },
+    {
+      "type": "numeric",
+      "id": "q2",
+      "text": "Solve for x: x + 13 = 20. What is x?",
+      "answer": 7,
+      "tolerance": 0,
+      "explanation": "Subtract 13 from both sides: x = 20 - 13 = 7."
+    },
+    {
+      "type": "numeric",
+      "id": "q3",
+      "text": "Solve for n: 6n = 42. What is n?",
+      "answer": 7,
+      "tolerance": 0,
+      "explanation": "Divide both sides by 6: n = 42 / 6 = 7."
+    },
+    {
+      "type": "multiple-choice",
+      "id": "q4",
+      "text": "Which equation correctly represents 'a number decreased by 4 equals 11'?",
+      "options": ["n + 4 = 11", "4 - n = 11", "n - 4 = 11", "4n = 11"],
+      "answer": 2,
+      "explanation": "'Decreased by 4' means we subtract 4 from the number, giving n - 4 = 11."
+    },
+    {
+      "type": "numeric",
+      "id": "q5",
+      "text": "Solve for x: 3x + 5 = 20. What is x?",
+      "answer": 5,
+      "tolerance": 0,
+      "explanation": "Step 1 — subtract 5 from both sides: 3x = 15. Step 2 — divide by 3: x = 5."
+    }
+  ]
+}

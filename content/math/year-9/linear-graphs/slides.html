@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graphing Linear Equations</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #f1f5f9;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .slideshow {
+    width: min(720px, 95vw);
+  }
+
+  /* ── Slide ── */
+  .slide {
+    display: none;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 2.5rem 2.5rem 2rem;
+    min-height: 380px;
+    position: relative;
+  }
+  .slide.active { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .slide-number {
+    position: absolute;
+    top: 1rem; right: 1.25rem;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #312e81;
+    color: #a5b4fc;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    width: fit-content;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.25;
+  }
+
+  p { color: #cbd5e1; line-height: 1.65; font-size: 1rem; }
+
+  .highlight {
+    background: #0f172a;
+    border-left: 3px solid #6366f1;
+    border-radius: 0 8px 8px 0;
+    padding: 0.75rem 1rem;
+    font-family: ui-monospace, monospace;
+    color: #a5b4fc;
+    font-size: 1.05rem;
+  }
+
+  .grid-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+
+  svg text { font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  ul { color: #cbd5e1; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  li { line-height: 1.6; }
+  strong { color: #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="slideshow">
+
+  <!-- ── Slide 1: The Coordinate Plane ── -->
+  <div class="slide active" id="slide-1">
+    <span class="slide-number">1 / 4</span>
+    <span class="tag">The Basics</span>
+    <h2>The Coordinate Plane</h2>
+    <p>Every point on a graph is described by two numbers written as <strong>(x, y)</strong>. The <strong>x-axis</strong> runs left–right; the <strong>y-axis</strong> runs up–down. They cross at the <strong>origin (0, 0)</strong>.</p>
+
+    <div class="grid-wrap">
+      <svg width="220" height="220" viewBox="-110 -110 220 220" aria-label="Coordinate plane showing labelled axes and the origin">
+        <g stroke="#334155" stroke-width="0.5">
+          <line x1="-100" y1="-80" x2="-100" y2="80"/>
+          <line x1="-60"  y1="-80" x2="-60"  y2="80"/>
+          <line x1="-20"  y1="-80" x2="-20"  y2="80"/>
+          <line x1="20"   y1="-80" x2="20"   y2="80"/>
+          <line x1="60"   y1="-80" x2="60"   y2="80"/>
+          <line x1="100"  y1="-80" x2="100"  y2="80"/>
+          <line x1="-100" y1="-80" x2="100" y2="-80"/>
+          <line x1="-100" y1="-40" x2="100" y2="-40"/>
+          <line x1="-100" y1="0"   x2="100" y2="0"/>
+          <line x1="-100" y1="40"  x2="100" y2="40"/>
+          <line x1="-100" y1="80"  x2="100" y2="80"/>
+        </g>
+        <line x1="-105" y1="0" x2="105" y2="0" stroke="#6366f1" stroke-width="2"/>
+        <line x1="0" y1="-90" x2="0" y2="90"   stroke="#6366f1" stroke-width="2"/>
+        <polygon points="105,0 98,-4 98,4"   fill="#6366f1"/>
+        <polygon points="0,-90 -4,-83 4,-83" fill="#6366f1"/>
+        <text x="100" y="14" fill="#a5b4fc" font-size="11" text-anchor="middle">x</text>
+        <text x="10"  y="-92" fill="#a5b4fc" font-size="11" text-anchor="middle">y</text>
+        <circle cx="0" cy="0" r="3" fill="#f59e0b"/>
+        <text x="6" y="14" fill="#fcd34d" font-size="10">(0,0)</text>
+        <text x="40"  y="14" fill="#64748b" font-size="9" text-anchor="middle">1</text>
+        <text x="-40" y="14" fill="#64748b" font-size="9" text-anchor="middle">-1</text>
+        <text x="6"   y="-38" fill="#64748b" font-size="9">1</text>
+        <text x="6"   y="44"  fill="#64748b" font-size="9">-1</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── Slide 2: Plotting Points ── -->
+  <div class="slide" id="slide-2">
+    <span class="slide-number">2 / 4</span>
+    <span class="tag">Plotting Points</span>
+    <h2>How to Plot a Point</h2>
+    <p>To plot <strong>(x, y)</strong>: start at the origin, move <em>x</em> units along the x-axis, then move <em>y</em> units up or down.</p>
+
+    <ul>
+      <li><strong>(2, 3)</strong> → right 2, up 3</li>
+      <li><strong>(-1, 4)</strong> → left 1, up 4</li>
+      <li><strong>(3, -2)</strong> → right 3, down 2</li>
+    </ul>
+
+    <div class="grid-wrap">
+      <svg width="220" height="220" viewBox="-110 -110 220 220" aria-label="Three plotted points on a coordinate grid">
+        <g stroke="#334155" stroke-width="0.5">
+          <line x1="-100" y1="-80" x2="-100" y2="80"/> <line x1="-60"  y1="-80" x2="-60"  y2="80"/>
+          <line x1="-20"  y1="-80" x2="-20"  y2="80"/> <line x1="20"   y1="-80" x2="20"   y2="80"/>
+          <line x1="60"   y1="-80" x2="60"   y2="80"/> <line x1="100"  y1="-80" x2="100"  y2="80"/>
+          <line x1="-100" y1="-80" x2="100" y2="-80"/> <line x1="-100" y1="-40" x2="100" y2="-40"/>
+          <line x1="-100" y1="0"   x2="100" y2="0"/>   <line x1="-100" y1="40"  x2="100" y2="40"/>
+          <line x1="-100" y1="80"  x2="100" y2="80"/>
+        </g>
+        <line x1="-105" y1="0" x2="105" y2="0" stroke="#6366f1" stroke-width="1.5"/>
+        <line x1="0" y1="-90" x2="0" y2="90"   stroke="#6366f1" stroke-width="1.5"/>
+        <circle cx="40"  cy="-60" r="5" fill="#f59e0b"/>
+        <text x="46"  y="-55" fill="#fcd34d" font-size="10">(2, 3)</text>
+        <circle cx="-20" cy="-80" r="5" fill="#34d399"/>
+        <text x="-18" y="-83" fill="#6ee7b7" font-size="10">(-1, 4)</text>
+        <circle cx="60"  cy="40"  r="5" fill="#f87171"/>
+        <text x="65"  y="38"  fill="#fca5a5" font-size="10">(3, -2)</text>
+        <text x="100" y="14" fill="#a5b4fc" font-size="11" text-anchor="middle">x</text>
+        <text x="10"  y="-92" fill="#a5b4fc" font-size="11">y</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── Slide 3: Slope ── -->
+  <div class="slide" id="slide-3">
+    <span class="slide-number">3 / 4</span>
+    <span class="tag">Slope</span>
+    <h2>Understanding Slope</h2>
+    <p><strong>Slope</strong> (written <em>m</em>) measures how steep a line is — how much y changes for every 1 unit increase in x.</p>
+
+    <div class="highlight">slope (m) = rise / run = change in y / change in x</div>
+
+    <ul>
+      <li><strong>Positive slope</strong> → line goes up left to right</li>
+      <li><strong>Negative slope</strong> → line goes down left to right</li>
+      <li><strong>Zero slope</strong> → horizontal line (y never changes)</li>
+    </ul>
+
+    <p>Example: the line through (0, 1) and (2, 5) has slope <strong>m = (5 - 1) / (2 - 0) = 4 / 2 = 2</strong>. For every step right, the line rises 2.</p>
+  </div>
+
+  <!-- ── Slide 4: y-intercept & Equation ── -->
+  <div class="slide" id="slide-4">
+    <span class="slide-number">4 / 4</span>
+    <span class="tag">y = mx + b</span>
+    <h2>The Slope-Intercept Form</h2>
+    <p>Every straight line can be written as:</p>
+
+    <div class="highlight">y = mx + b</div>
+
+    <ul>
+      <li><strong>m</strong> is the slope (steepness)</li>
+      <li><strong>b</strong> is the <em>y-intercept</em> — where the line crosses the y-axis (when x = 0)</li>
+    </ul>
+
+    <p>Example: <strong>y = 2x + 1</strong></p>
+    <ul>
+      <li>Slope = 2 (rises 2 for each step right)</li>
+      <li>y-intercept = 1 (crosses y-axis at y = 1)</li>
+      <li>To draw it: plot (0, 1), then from there go right 1 and up 2 to get (1, 3). Draw a line through both points.</li>
+    </ul>
+  </div>
+
+</div><!-- .slideshow -->
+
+<script>
+  var current = 1;
+  var total = 4;
+
+  function broadcast() {
+    window.parent.postMessage({ type: 'SLIDES_STATE', current: current, total: total }, '*');
+  }
+
+  function goTo(n) {
+    if (n < 1 || n > total) return;
+    document.getElementById('slide-' + current).classList.remove('active');
+    current = n;
+    document.getElementById('slide-' + current).classList.add('active');
+    broadcast();
+  }
+
+  // Commands from the parent SlidesViewer component
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'SLIDES_PREV') goTo(current - 1);
+    if (e.data && e.data.type === 'SLIDES_NEXT') goTo(current + 1);
+  });
+
+  // Keyboard navigation (works when iframe is focused)
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+  });
+
+  // Tell the parent our initial state as soon as the page loads
+  broadcast();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "title": "Graphing Linear Equations — Practice",
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "id": "q1",
+      "text": "What are the coordinates of the origin on a coordinate plane?",
+      "options": ["(1, 1)", "(0, 0)", "(0, 1)", "(1, 0)"],
+      "answer": 1,
+      "explanation": "The origin is always at (0, 0) — where the x-axis and y-axis cross."
+    },
+    {
+      "type": "numeric",
+      "id": "q2",
+      "text": "What is the slope of the line passing through (0, 2) and (4, 10)?",
+      "answer": 2,
+      "tolerance": 0.01,
+      "explanation": "Slope = rise / run = (10 - 2) / (4 - 0) = 8 / 4 = 2."
+    },
+    {
+      "type": "fill-blank",
+      "id": "q3",
+      "text": "In the equation y = 3x + 5, the number 5 is called the y-___.",
+      "acceptedAnswers": ["intercept", "y-intercept"],
+      "caseSensitive": false,
+      "explanation": "The constant b in y = mx + b is the y-intercept — the point where the line crosses the y-axis."
+    },
+    {
+      "type": "multiple-choice",
+      "id": "q4",
+      "text": "A line has equation y = -2x + 4. What is its slope?",
+      "options": ["4", "2", "-2", "-4"],
+      "answer": 2,
+      "explanation": "In y = mx + b, m is the slope. Here m = -2."
+    },
+    {
+      "type": "numeric",
+      "id": "q5",
+      "text": "For the equation y = 3x - 1, what is the value of y when x = 4?",
+      "answer": 11,
+      "tolerance": 0.01,
+      "explanation": "y = 3(4) - 1 = 12 - 1 = 11."
+    }
+  ]
+}

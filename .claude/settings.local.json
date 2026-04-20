@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@14 learnfree-temp --typescript --eslint --tailwind --no-src-dir --app --import-alias \"@/*\" --no-turbopack --yes)",
+      "Bash(mv learnfree-temp/* .)",
+      "Bash(mv learnfree-temp/.* .)",
+      "Bash(rmdir learnfree-temp *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"/ => %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"/_dev => %{http_code}\\\\n\" http://localhost:3000/_dev/)",
+      "Bash(kill %1)",
+      "Bash(curl -s -o /dev/null -w \"/ => %{http_code}\\\\n\" http://localhost:3001/)",
+      "Bash(curl -s -o /dev/null -w \"/dev-showcase/ => %{http_code}\\\\n\" http://localhost:3001/dev-showcase/)",
+      "Bash(npm install *)",
+      "Bash(curl -s -o /dev/null -w \"/        => %{http_code}\\\\n\" http://localhost:3003/)",
+      "Bash(curl -s -o /dev/null -w \"/login/  => %{http_code}\\\\n\" http://localhost:3003/login/)",
+      "Bash(curl -s -o /dev/null -w \"/signup/ => %{http_code}\\\\n\" http://localhost:3003/signup/)",
+      "Bash(curl -s -o /dev/null -w \"/progress \\(unauthed\\) => %{http_code}\\\\n\" http://localhost:3006/progress/)",
+      "Bash(curl -s -o /dev/null -w \"/worksheet/math/9/algebra-intro => %{http_code}\\\\n\" http://localhost:3006/worksheet/math/9/algebra-intro/)"
+    ]
+  }
+}

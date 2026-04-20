@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces */
+  --bg:            #f9f9f8;
+  --fg:            #1a1a1a;
+  --muted:         #6b7280;
+
+  /* Brand */
+  --primary:       #4f46e5;
+  --primary-hover: #4338ca;
+
+  /* Feedback */
+  --success:       #16a34a;
+  --error:         #dc2626;
+
+  /* Structural */
+  --border:        #e2e2df;
+}
+
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  @media (min-width: 768px) {
+    html {
+      font-size: 18px;
+    }
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Visible focus ring for keyboard users */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
