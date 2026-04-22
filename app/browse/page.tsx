@@ -1,93 +1,53 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSubjects } from "@/lib/content/loader";
+import { getAllTopics } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
-import type { Subject } from "@/lib/content/types";
+import type { YearLevel } from "@/lib/content/types";
 
 export const metadata: Metadata = {
-  title: "Browse Subjects",
-  description: "Choose a subject and year level to start learning — mathematics, science, English, history and more.",
+  title: "Browse",
+  description: "Choose a year level to start learning — free lectures and worksheets for Years 7–12.",
 };
 
-// ── Subject catalogue ─────────────────────────────────────────────────────────
-// Add a row here whenever a new subject folder lands in /content.
-const CATALOGUE: {
-  subject: Subject | string;
-  label: string;
-  description: string;
-  accent: string; // Tailwind border + bg classes for the accent strip
-}[] = [
-  {
-    subject: "math",
-    label: "Mathematics",
-    description: "Algebra, geometry, trigonometry, statistics and more",
-    accent: "border-indigo-400 bg-indigo-50",
-  },
-  {
-    subject: "science",
-    label: "Science",
-    description: "Physics, chemistry, biology and earth sciences",
-    accent: "border-emerald-400 bg-emerald-50",
-  },
-  {
-    subject: "english",
-    label: "English",
-    description: "Reading, writing, literature and language skills",
-    accent: "border-amber-400 bg-amber-50",
-  },
-  {
-    subject: "history",
-    label: "History",
-    description: "Australian and world history across the ages",
-    accent: "border-rose-400 bg-rose-50",
-  },
-];
+const ALL_YEARS: YearLevel[] = [7, 8, 9, 10, 11, 12];
 
 export default async function BrowsePage() {
-  const subjectsWithContent = await getSubjects();
-  const countBySubject = Object.fromEntries(
-    subjectsWithContent.map(({ subject, yearCounts }) => [
-      subject,
-      Object.values(yearCounts).reduce((s, n) => s + (n ?? 0), 0),
-    ])
-  );
+  const allTopics = await getAllTopics();
+
+  const countByYear: Partial<Record<YearLevel, number>> = {};
+  for (const topic of allTopics) {
+    countByYear[topic.year] = (countByYear[topic.year] ?? 0) + 1;
+  }
 
   return (
     <PageContainer as="main">
-      <h1 className="text-3xl font-bold text-fg mb-2">Browse Subjects</h1>
-      <p className="text-muted mb-8">Choose a subject to get started.</p>
+      <h1 className="text-3xl font-bold text-fg mb-2">Browse</h1>
+      <p className="text-muted mb-8">Choose your year level to get started.</p>
 
-      <ul className="grid gap-4 sm:grid-cols-2">
-        {CATALOGUE.map(({ subject, label, description, accent }) => {
-          const count = countBySubject[subject] ?? 0;
+      <ul className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        {ALL_YEARS.map((year) => {
+          const count = countByYear[year] ?? 0;
           const available = count > 0;
 
           return (
-            <li key={subject}>
+            <li key={year}>
               {available ? (
                 <Link
-                  href={`/browse/${subject}`}
-                  className="group flex flex-col h-full rounded-xl border border-border bg-white shadow-sm hover:shadow-md hover:border-indigo-300 transition-all p-6 min-h-[100px]"
+                  href={`/browse/${year}`}
+                  className="flex flex-col items-center justify-center rounded-xl border border-border bg-white shadow-sm hover:shadow-md hover:border-indigo-300 transition-all p-6 min-h-[110px] text-center"
                 >
-                  <SubjectCardContent
-                    accent={accent}
-                    label={label}
-                    description={description}
-                    count={count}
-                  />
+                  <span className="text-2xl font-bold text-fg">Year {year}</span>
+                  <span className="mt-1.5 text-sm text-muted">
+                    {count} topic{count !== 1 ? "s" : ""}
+                  </span>
                 </Link>
               ) : (
                 <div
                   aria-disabled="true"
-                  className="flex flex-col h-full rounded-xl border border-border bg-white opacity-60 p-6 min-h-[100px] cursor-not-allowed"
+                  className="flex flex-col items-center justify-center rounded-xl border border-border bg-white opacity-50 p-6 min-h-[110px] text-center cursor-not-allowed"
                 >
-                  <SubjectCardContent
-                    accent={accent}
-                    label={label}
-                    description={description}
-                    count={0}
-                    comingSoon
-                  />
+                  <span className="text-2xl font-bold text-fg">Year {year}</span>
+                  <span className="mt-1.5 text-xs font-semibold text-gray-400">Coming soon</span>
                 </div>
               )}
             </li>
@@ -95,40 +55,5 @@ export default async function BrowsePage() {
         })}
       </ul>
     </PageContainer>
-  );
-}
-
-function SubjectCardContent({
-  accent,
-  label,
-  description,
-  count,
-  comingSoon,
-}: {
-  accent: string;
-  label: string;
-  description: string;
-  count: number;
-  comingSoon?: boolean;
-}) {
-  return (
-    <>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <span className={`w-1.5 self-stretch rounded-full ${accent.split(" ")[0]} bg-current`} />
-        <div className="flex-1">
-          <span className="text-lg font-bold text-fg leading-tight">{label}</span>
-        </div>
-        {comingSoon ? (
-          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-            Coming soon
-          </span>
-        ) : (
-          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-            {count} topic{count !== 1 ? "s" : ""}
-          </span>
-        )}
-      </div>
-      <p className="text-sm text-muted leading-relaxed">{description}</p>
-    </>
   );
 }

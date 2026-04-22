@@ -11,7 +11,7 @@ function badge(ok: boolean) {
 }
 
 async function main() {
-  console.log("\n── LearnFree content validation ──\n");
+  console.log("\n── At Ease Learning content validation ──\n");
 
   let topics: Topic[];
   try {

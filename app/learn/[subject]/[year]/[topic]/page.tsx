@@ -59,9 +59,9 @@ export default async function LearnPage({ params }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${subject}`} className="hover:text-fg transition-colors">{subjectLabel}</Link>
+        <Link href={`/browse/${yearStr}`} className="hover:text-fg transition-colors">Year {yearStr}</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${subject}/${yearStr}`} className="hover:text-fg transition-colors">Year {yearStr}</Link>
+        <Link href={`/browse/${yearStr}/${subject}`} className="hover:text-fg transition-colors">{subjectLabel}</Link>
         <span aria-hidden>/</span>
         <span className="text-fg font-medium">{title}</span>
       </nav>
@@ -108,7 +108,7 @@ export default async function LearnPage({ params }: Props) {
           </Link>
         ) : (
           <Link
-            href={`/browse/${subject}/${yearStr}`}
+            href={`/browse/${yearStr}/${subject}`}
             className="inline-flex items-center justify-center min-h-[52px] px-8 rounded-xl border-2 border-fg text-fg text-lg font-semibold hover:bg-fg hover:text-white transition-colors"
           >
             ← Back to Topics

@@ -12,12 +12,12 @@ export async function generateStaticParams() {
   const seen = new Set<string>();
   return topics
     .filter((t) => {
-      const key = `${t.subject}-${t.year}`;
+      const key = `${t.year}-${t.subject}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .map((t) => ({ subject: t.subject, year: String(t.year) }));
+    .map((t) => ({ year: String(t.year), subject: t.subject }));
 }
 
 const VALID_YEARS = new Set([7, 8, 9, 10, 11, 12]);
@@ -36,18 +36,18 @@ const FORMAT_BADGE: Record<string, { label: string; classes: string }> = {
 };
 
 interface Props {
-  params: { subject: string; year: string };
+  params: { year: string; subject: string };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const label = SUBJECT_LABELS[params.subject] ?? params.subject;
   return {
     title: `Year ${params.year} ${label}`,
-    description: `Year ${params.year} ${label} topics on LearnFree — free lectures and worksheets.`,
+    description: `Year ${params.year} ${label} topics on At Ease Learning — free lectures and worksheets.`,
   };
 }
 
-export default async function YearTopicsPage({ params }: Props) {
+export default async function YearSubjectPage({ params }: Props) {
   const { subject } = params;
   const yearNum = parseInt(params.year, 10);
 
@@ -65,17 +65,12 @@ export default async function YearTopicsPage({ params }: Props) {
 
   return (
     <PageContainer as="main">
-      {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
-        <Link href="/browse" className="hover:text-fg transition-colors">
-          Browse
-        </Link>
+        <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
         <span aria-hidden="true">/</span>
-        <Link href={`/browse/${subject}`} className="hover:text-fg transition-colors">
-          {subjectLabel}
-        </Link>
+        <Link href={`/browse/${year}`} className="hover:text-fg transition-colors">Year {year}</Link>
         <span aria-hidden="true">/</span>
-        <span className="text-fg font-medium">Year {year}</span>
+        <span className="text-fg font-medium">{subjectLabel}</span>
       </nav>
 
       <h1 className="text-3xl font-bold text-fg mb-2">
@@ -93,26 +88,18 @@ export default async function YearTopicsPage({ params }: Props) {
           return (
             <li key={topic.slug}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-border bg-white shadow-sm p-5">
-                {/* Text */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h2 className="text-base font-bold text-fg leading-snug">
-                      {topic.title}
-                    </h2>
+                    <h2 className="text-base font-bold text-fg leading-snug">{topic.title}</h2>
                     {badge && (
-                      <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.classes}`}
-                      >
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.classes}`}>
                         {badge.label}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted leading-relaxed line-clamp-2">
-                    {topic.description}
-                  </p>
+                  <p className="text-sm text-muted leading-relaxed line-clamp-2">{topic.description}</p>
                 </div>
 
-                {/* CTA */}
                 <div className="shrink-0">
                   {topic.lecture ? (
                     <Link

@@ -4,7 +4,7 @@ import { ProgressClient } from "@/components/ProgressClient";
 
 export const metadata: Metadata = {
   title: "My Progress",
-  description: "Track your worksheet scores, streaks, and learning history on LearnFree.",
+  description: "Track your worksheet scores, streaks, and learning history on At Ease Learning.",
 };
 
 export default async function ProgressPage() {

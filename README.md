@@ -1,10 +1,10 @@
-# LearnFree
+# At Ease Learning
 
 Free, high-quality education for Year 7–12 students — lectures, worksheets, and instant feedback, all in one place.
 
 ## Purpose
 
-LearnFree delivers structured lectures and interactive worksheets for secondary school students (Years 7–12) at no cost. Students can browse content by year and subject, complete worksheets, and receive instant automated feedback. Progress is saved for signed-in users; worksheets are fully usable as a guest.
+At Ease Learning delivers structured lectures and interactive worksheets for secondary school students (Years 7–12) at no cost. Students browse content by year level then subject, complete worksheets, and receive instant automated feedback. Progress is saved for signed-in users; worksheets are fully usable as a guest.
 
 ## Stack
 
@@ -22,7 +22,7 @@ LearnFree delivers structured lectures and interactive worksheets for secondary 
 /
 ├── app/                        # Next.js App Router pages & layouts
 │   ├── (auth)/                 # Login, signup, logout routes
-│   ├── browse/                 # Subject → year → topic browsing
+│   ├── browse/                 # Year → subject → topic browsing
 │   ├── learn/                  # Lecture viewer
 │   ├── worksheet/              # Interactive worksheet
 │   └── progress/               # Auth-required progress dashboard
@@ -31,7 +31,9 @@ LearnFree delivers structured lectures and interactive worksheets for secondary 
 │   ├── lecture/                # MarkdownContent, YouTubeFacade, SlidesViewer
 │   └── ui/                     # Button, Input, Card, PageContainer
 ├── content/
-│   └── math/year-9/            # meta.json + lecture.md + worksheet.json per topic
+│   └── {subject}/year-{N}/    # meta.json + lecture.md + worksheet.json per topic
+├── images/
+│   └── logo/                   # Site logo assets
 ├── lib/
 │   ├── content/                # loader.ts, schemas.ts, types.ts
 │   ├── supabase/               # client.ts, server.ts, database.types.ts
@@ -68,7 +70,9 @@ npm run content:check # Validate all content files against schemas
 
 `.env.local` is listed in `.gitignore` — never commit real keys.
 
-## Adding new content
+## Managing content
+
+### Folder structure
 
 Each topic is a folder under `content/{subject}/year-{N}/{slug}/`:
 
@@ -79,9 +83,103 @@ Each topic is a folder under `content/{subject}/year-{N}/{slug}/`:
 | `worksheet.json` | No | Questions (multiple-choice, numeric, fill-blank) |
 | `slides.html` | When `format: slides` | Raw HTML rendered in a sandboxed iframe |
 
-Run `npm run content:check` after adding files to validate them against the schemas.
+### Adding a topic
 
-To add a new subject: add its slug to the `Subject` union in `lib/content/types.ts` and add a display entry to the `CATALOGUE` array in `app/browse/page.tsx`.
+**1. Create the folder**
+
+```
+content/math/year-9/quadratic-equations/
+```
+
+**2. `meta.json`** (required)
+
+```json
+{
+  "title": "Quadratic Equations",
+  "description": "Solving quadratics by factoring, completing the square, and the formula.",
+  "orderIndex": 4
+}
+```
+
+`orderIndex` controls sort order within a year/subject — lower numbers appear first.
+
+**3. `lecture.md`** (optional)
+
+Text lecture:
+```md
+---
+format: text
+---
+
+## Introduction
+Your markdown content here...
+```
+
+YouTube video:
+```md
+---
+format: video
+youtubeId: dQw4w9WgXcQ
+durationSeconds: 212
+---
+```
+
+Slides (also requires a `slides.html` file in the same folder):
+```md
+---
+format: slides
+---
+```
+
+**4. `worksheet.json`** (optional)
+
+```json
+{
+  "title": "Quadratic Equations Practice",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple-choice",
+      "prompt": "Which values satisfy x² - 5x + 6 = 0?",
+      "options": ["x = 2 and x = 3", "x = 1 and x = 6", "x = -2 and x = -3"],
+      "answer": "x = 2 and x = 3"
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "prompt": "Solve: x² = 49. Enter the positive value of x.",
+      "answer": 7
+    },
+    {
+      "id": "q3",
+      "type": "fill-blank",
+      "prompt": "The quadratic formula is x = (-b ± √(b²-4ac)) / ___",
+      "answer": "2a"
+    }
+  ]
+}
+```
+
+### Updating existing content
+
+Edit the files directly. Changes are reflected on the next page load in dev mode, or after the next `npm run build` for production.
+
+### Validating content
+
+Always run this after adding or editing content:
+
+```bash
+npm run content:check
+```
+
+It catches missing fields, bad JSON, and invalid question types before they reach production.
+
+### Adding a new subject
+
+1. Add its slug to the `Subject` union in `lib/content/types.ts`
+2. Add a display entry to the `SUBJECT_CATALOGUE` array in `app/browse/[year]/page.tsx`
+3. Add its label to the `SUBJECT_LABELS` objects in `app/learn/[subject]/[year]/[topic]/page.tsx` and `app/worksheet/[subject]/[year]/[topic]/page.tsx`
+4. Create content folders under `content/{subject}/year-{N}/{slug}/`
 
 ## Deployment (Cloudflare Pages)
 
@@ -116,7 +214,7 @@ To add a new subject: add its slug to the `Subject` union in `lib/content/types.
 After the first deployment, update Supabase so auth redirects work correctly:
 
 1. Go to **Supabase dashboard → Authentication → URL Configuration**.
-2. Set **Site URL** to your Pages URL (e.g. `https://learnfree.pages.dev`).
+2. Set **Site URL** to your Pages URL (e.g. `https://at-ease-learning.pages.dev`).
 3. Add the same URL to **Redirect URLs**.
 
 ### How static export and auth coexist
@@ -145,7 +243,7 @@ No Supabase secrets are required in CI — auth is purely client-side, so the bu
 |------|---------|-----|
 | **Loading states** | No `loading.tsx` files; dynamic pages (home, browse, progress) could flash blank content | Added `animate-pulse` skeleton loaders for home, browse, and progress routes |
 | **Error boundary** | No `error.tsx` or `not-found.tsx`; errors and 404s showed raw Next.js defaults | Created `app/error.tsx` (Try again / Go home CTAs) and `app/not-found.tsx` (Browse topics CTA) |
-| **Metadata** | Every tab showed "LearnFree" — no per-route titles or descriptions | Root layout uses `"%s — LearnFree"` template; all 9 routes export `metadata` or `generateMetadata` |
+| **Metadata** | Every tab showed the site name — no per-route titles or descriptions | Root layout uses `"%s — At Ease Learning"` template; all routes export `metadata` or `generateMetadata` |
 | **Accessibility** | Two breadcrumb `<nav>` elements missing `aria-label`; `/` separators not hidden from screen readers; markdown `h2` rendered as `<h2>` same as `h1`, collapsing heading hierarchy | Added `aria-label="Breadcrumb"` and `aria-hidden="true"` on separators; fixed heading demotion (`h1`→`h2`, `h2`→`h3`, `h3`→`h4`) |
 | **Performance** | `MarkdownContent` was a client component, shipping `react-markdown` + `remark-gfm` (~50 KB) to the browser unnecessarily | Removed `"use client"` — component is now server-only; libraries excluded from the client bundle |
 | **Mobile (360 px)** | Progress stats grid (`grid-cols-3 p-5 text-3xl`) was too tight at narrow widths | Responsive padding (`p-3 sm:p-5`), font size (`text-2xl sm:text-3xl`), and gap (`gap-2 sm:gap-3`) |

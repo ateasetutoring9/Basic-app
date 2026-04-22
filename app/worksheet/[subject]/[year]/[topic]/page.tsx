@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: topic ? `${topic.title} — Worksheet` : "Worksheet",
     description: topic
-      ? `Practice ${topic.title} with an interactive worksheet on LearnFree.`
+      ? `Practice ${topic.title} with an interactive worksheet on At Ease Learning.`
       : undefined,
   };
 }
@@ -54,9 +54,9 @@ export default async function WorksheetPage({ params }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${subject}`} className="hover:text-fg transition-colors">{subjectLabel}</Link>
+        <Link href={`/browse/${yearStr}`} className="hover:text-fg transition-colors">Year {yearStr}</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${subject}/${yearStr}`} className="hover:text-fg transition-colors">Year {yearStr}</Link>
+        <Link href={`/browse/${yearStr}/${subject}`} className="hover:text-fg transition-colors">{subjectLabel}</Link>
         <span aria-hidden>/</span>
         <Link href={topicUrl} className="hover:text-fg transition-colors">{title}</Link>
         <span aria-hidden>/</span>

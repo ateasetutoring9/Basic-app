@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { NavAuth } from "@/components/NavAuth";
+import logo from "@/images/logo/Logo-Atease-Website.PNG";
 
 export default function TopNav() {
   return (
@@ -9,9 +11,10 @@ export default function TopNav() {
         {/* Logo */}
         <Link
           href="/"
-          className="font-bold text-lg text-fg hover:text-primary transition-colors shrink-0 min-h-[44px] flex items-center"
+          className="font-bold text-lg text-fg hover:text-primary transition-colors shrink-0 min-h-[44px] flex items-center gap-2"
         >
-          LearnFree
+          <Image src={logo} alt="At Ease Learning" width={36} height={36} className="rounded-full" />
+          At Ease Learning
         </Link>
 
         {/* Nav links */}

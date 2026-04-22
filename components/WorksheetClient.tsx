@@ -59,7 +59,7 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
               total: graded.total,
             })
             .then(({ error }) => {
-              if (error) console.error("[LearnFree] Failed to save attempt:", error.message);
+              if (error) console.error("[At Ease Learning] Failed to save attempt:", error.message);
             });
         });
       });
