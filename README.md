@@ -97,6 +97,9 @@ To add a new subject: add its slug to the `Subject` union in `lib/content/types.
    |---|---|
    | Build command | `npm run build` |
    | Build output directory | `out` |
+   | Deploy command | *(leave empty)* |
+
+   > **Important:** Leave the Deploy command field blank. Cloudflare Pages deploys the output directory automatically after a successful build — no wrangler deploy command is needed when using the GitHub integration.
 
 4. Add environment variables:
 

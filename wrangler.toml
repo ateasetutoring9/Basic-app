@@ -1,0 +1,6 @@
+# Used when deploying manually via: npx wrangler pages deploy out
+# Set `name` to match your Cloudflare Pages project name exactly.
+# When using the GitHub integration, leave the Deploy command field blank in
+# the Cloudflare Pages dashboard — no wrangler command is needed there.
+name = "learnfree"
+pages_build_output_dir = "out"
