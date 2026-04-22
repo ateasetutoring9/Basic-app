@@ -3,5 +3,5 @@
 # When using the GitHub integration, leave the Deploy command field blank in
 # the Cloudflare Pages dashboard — no wrangler command is needed there.
 # wrangler.toml
-name = 'basic-app'
+name = 'Basic-app'
 pages_build_output_dir = "out"
