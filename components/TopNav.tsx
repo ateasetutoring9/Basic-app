@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { NavAuth } from "@/components/NavAuth";
-import logo from "@/images/logo/Logo-Atease-Website.PNG";
+import logo from "@/images/logo/logo-atease-website.png";
 
 export default function TopNav() {
   return (

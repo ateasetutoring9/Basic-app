@@ -17,7 +17,8 @@
       "Bash(curl -s -o /dev/null -w \"/login/  => %{http_code}\\\\n\" http://localhost:3003/login/)",
       "Bash(curl -s -o /dev/null -w \"/signup/ => %{http_code}\\\\n\" http://localhost:3003/signup/)",
       "Bash(curl -s -o /dev/null -w \"/progress \\(unauthed\\) => %{http_code}\\\\n\" http://localhost:3006/progress/)",
-      "Bash(curl -s -o /dev/null -w \"/worksheet/math/9/algebra-intro => %{http_code}\\\\n\" http://localhost:3006/worksheet/math/9/algebra-intro/)"
+      "Bash(curl -s -o /dev/null -w \"/worksheet/math/9/algebra-intro => %{http_code}\\\\n\" http://localhost:3006/worksheet/math/9/algebra-intro/)",
+      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|svg|webp|gif|ico|woff2?|ttf|otf\\)$')"
     ]
   }
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { HomeAuth } from "@/components/HomeAuth";
-import logo from "@/images/logo/Logo-Atease-Website.PNG";
+import logo from "@/images/logo/logo-atease-website.png";
 
 export const metadata: Metadata = {
   title: "At Ease Learning — Free Education for Year 7–12",

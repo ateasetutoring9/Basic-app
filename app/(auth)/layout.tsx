@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import logo from "@/images/logo/Logo-Atease-Website.PNG";
+import logo from "@/images/logo/logo-atease-website.png";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
