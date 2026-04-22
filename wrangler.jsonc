@@ -1,0 +1,8 @@
+{
+  "name": "basic-app",
+  "compatibility_date": "2026-04-22",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "single-page-application"
+  }
+}
