@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllTopics } from "@/lib/content/loader";
@@ -38,6 +39,14 @@ interface Props {
   params: { subject: string; year: string };
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const label = SUBJECT_LABELS[params.subject] ?? params.subject;
+  return {
+    title: `Year ${params.year} ${label}`,
+    description: `Year ${params.year} ${label} topics on LearnFree — free lectures and worksheets.`,
+  };
+}
+
 export default async function YearTopicsPage({ params }: Props) {
   const { subject } = params;
   const yearNum = parseInt(params.year, 10);
@@ -57,15 +66,15 @@ export default async function YearTopicsPage({ params }: Props) {
   return (
     <PageContainer as="main">
       {/* Breadcrumb */}
-      <nav className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
+      <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">
           Browse
         </Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <Link href={`/browse/${subject}`} className="hover:text-fg transition-colors">
           {subjectLabel}
         </Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <span className="text-fg font-medium">Year {year}</span>
       </nav>
 

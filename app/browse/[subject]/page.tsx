@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllTopics, getSubjects } from "@/lib/content/loader";
@@ -24,6 +25,14 @@ interface Props {
   params: { subject: string };
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const label = SUBJECT_LABELS[params.subject] ?? params.subject;
+  return {
+    title: label,
+    description: `Browse Year 7–12 ${label} topics — free lectures and worksheets on LearnFree.`,
+  };
+}
+
 export default async function SubjectPage({ params }: Props) {
   const { subject } = params;
 
@@ -42,11 +51,11 @@ export default async function SubjectPage({ params }: Props) {
   return (
     <PageContainer as="main">
       {/* Breadcrumb */}
-      <nav className="text-sm text-muted mb-6 flex items-center gap-1.5">
+      <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">
           Browse
         </Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <span className="text-fg font-medium">{label}</span>
       </nav>
 

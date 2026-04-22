@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSubjects } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 import type { Subject } from "@/lib/content/types";
+
+export const metadata: Metadata = {
+  title: "Browse Subjects",
+  description: "Choose a subject and year level to start learning — mathematics, science, English, history and more.",
+};
 
 // ── Subject catalogue ─────────────────────────────────────────────────────────
 // Add a row here whenever a new subject folder lands in /content.

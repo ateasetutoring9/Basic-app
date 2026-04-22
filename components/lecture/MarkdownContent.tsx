@@ -1,5 +1,3 @@
-"use client";
-
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -8,14 +6,15 @@ export default function MarkdownContent({ content }: { content: string }) {
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
+        // Demote headings: page already has an h1, so md h1→h2, h2→h3, h3→h4
         h1: ({ children }) => (
           <h2 className="text-2xl font-bold text-fg mt-8 mb-3 leading-snug">{children}</h2>
         ),
         h2: ({ children }) => (
-          <h2 className="text-2xl font-bold text-fg mt-8 mb-3 leading-snug">{children}</h2>
+          <h3 className="text-xl font-bold text-fg mt-6 mb-2 leading-snug">{children}</h3>
         ),
         h3: ({ children }) => (
-          <h3 className="text-lg font-bold text-fg mt-6 mb-2">{children}</h3>
+          <h4 className="text-lg font-bold text-fg mt-5 mb-2">{children}</h4>
         ),
         p: ({ children }) => (
           <p className="text-fg leading-relaxed mb-4">{children}</p>

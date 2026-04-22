@@ -1,19 +1,7 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "@/components/LogoutButton";
+import { NavAuth } from "@/components/NavAuth";
 
-export default async function TopNav() {
-  const configured =
-    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  let user = null;
-  if (configured) {
-    const supabase = createClient();
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  }
-
+export default function TopNav() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between gap-2 h-14">
@@ -35,32 +23,7 @@ export default async function TopNav() {
             Browse
           </Link>
 
-          {user ? (
-            <>
-              <Link
-                href="/progress"
-                className="min-h-[44px] px-3 flex items-center text-sm font-medium text-muted hover:text-fg transition-colors rounded-lg hover:bg-gray-50"
-              >
-                My Progress
-              </Link>
-              <LogoutButton />
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="min-h-[44px] px-3 flex items-center text-sm font-medium text-muted hover:text-fg transition-colors rounded-lg hover:bg-gray-50"
-              >
-                Log In
-              </Link>
-              <Link
-                href="/signup"
-                className="min-h-[44px] px-4 inline-flex items-center justify-center rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
+          <NavAuth />
         </nav>
       </div>
     </header>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllTopics, getTopic } from "@/lib/content/loader";
@@ -31,6 +32,15 @@ const FORMAT_LABELS: Record<string, string> = {
 
 interface Props {
   params: { subject: string; year: string; topic: string };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const year = parseInt(params.year, 10) as YearLevel;
+  const topic = await getTopic(params.subject as Subject, year, params.topic);
+  return {
+    title: topic?.title ?? "Lecture",
+    description: topic?.description,
+  };
 }
 
 export default async function LearnPage({ params }: Props) {

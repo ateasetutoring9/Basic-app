@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { Worksheet, Question } from "@/lib/content/types";
 import { gradeWorksheet } from "@/lib/grading";
 import type { GradingResult } from "@/lib/grading";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -13,16 +12,16 @@ import { Button } from "@/components/ui/Button";
 interface Props {
   worksheet: Worksheet;
   topicUrl: string;
-  userId: string | null;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function WorksheetClient({ worksheet, topicUrl, userId }: Props) {
+export function WorksheetClient({ worksheet, topicUrl }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<"questions" | "results">("questions");
   const [result, setResult] = useState<GradingResult | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const { questions } = worksheet;
   const current = questions[currentIndex];
@@ -39,22 +38,31 @@ export function WorksheetClient({ worksheet, topicUrl, userId }: Props) {
     setPhase("results");
 
     // Fire-and-forget save — never blocks the user from seeing their score
-    if (userId) {
-      const supabase = createClient();
-      supabase
-        .from("attempts")
-        .insert({
-          user_id: userId,
-          subject: worksheet.subject,
-          year: worksheet.year,
-          topic_slug: worksheet.topicSlug,
-          worksheet_id: worksheet.id,
-          score: graded.score,
-          total: graded.total,
-        })
-        .then(({ error }) => {
-          if (error) console.error("[LearnFree] Failed to save attempt:", error.message);
+    const configured =
+      !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (configured) {
+      import("@/lib/supabase/client").then(({ createClient }) => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) return;
+          setIsAuthenticated(true);
+          supabase
+            .from("attempts")
+            .insert({
+              user_id: user.id,
+              subject: worksheet.subject,
+              year: worksheet.year,
+              topic_slug: worksheet.topicSlug,
+              worksheet_id: worksheet.id,
+              score: graded.score,
+              total: graded.total,
+            })
+            .then(({ error }) => {
+              if (error) console.error("[LearnFree] Failed to save attempt:", error.message);
+            });
         });
+      });
     }
   }
 
@@ -71,7 +79,7 @@ export function WorksheetClient({ worksheet, topicUrl, userId }: Props) {
         result={result}
         worksheet={worksheet}
         topicUrl={topicUrl}
-        userId={userId}
+        isAuthenticated={isAuthenticated}
         onRetry={handleRetry}
       />
     );
@@ -258,13 +266,13 @@ function ResultsScreen({
   result,
   worksheet,
   topicUrl,
-  userId,
+  isAuthenticated,
   onRetry,
 }: {
   result: GradingResult;
   worksheet: Worksheet;
   topicUrl: string;
-  userId: string | null;
+  isAuthenticated: boolean;
   onRetry: () => void;
 }) {
   const pct = Math.round((result.score / result.total) * 100);
@@ -282,7 +290,7 @@ function ResultsScreen({
       </div>
 
       {/* Guest nudge — encouraging, not punitive */}
-      {!userId && (
+      {!isAuthenticated && (
         <div className="mb-6 p-4 rounded-xl bg-indigo-50 border border-indigo-200 text-sm text-indigo-900" role="status">
           <Link href="/login" className="font-semibold underline underline-offset-2">
             Create a free account
