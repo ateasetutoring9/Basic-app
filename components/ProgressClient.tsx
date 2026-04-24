@@ -5,9 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageContainer } from "@/components/ui/PageContainer";
-import type { Database } from "@/lib/supabase/database.types";
-
-type Attempt = Database["public"]["Tables"]["attempts"]["Row"];
 
 // ─── Subject display names ────────────────────────────────────────────────────
 
@@ -15,12 +12,31 @@ const SUBJECT_LABELS: Record<string, string> = {
   math: "Mathematics",
   science: "Science",
   english: "English",
-  history: "History",
+  "social-studies": "Social Studies",
 };
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AttemptRow {
+  id: string;
+  score: number;
+  total: number;
+  created_at: string;
+  worksheets: {
+    id: string;
+    title: string;
+    topics: {
+      subject_slug: string;
+      year_level: number;
+      slug: string;
+      title: string;
+    } | null;
+  } | null;
+}
 
 // ─── Stats helpers ────────────────────────────────────────────────────────────
 
-function calcStreak(attempts: Attempt[]): number {
+function calcStreak(attempts: AttemptRow[]): number {
   if (attempts.length === 0) return 0;
 
   const days = Array.from(
@@ -55,22 +71,21 @@ interface TopicSummary {
 interface YearGroup { year: number; topics: TopicSummary[] }
 interface SubjectGroup { subject: string; label: string; years: YearGroup[] }
 
-function buildGroups(
-  attempts: Attempt[],
-  titleMap: Record<string, string>
-): SubjectGroup[] {
+function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
   const summaryMap = new Map<string, TopicSummary & { subject: string; year: number }>();
 
   for (const a of attempts) {
-    const key = `${a.subject}/${a.year}/${a.topic_slug}`;
+    const topic = a.worksheets?.topics;
+    if (!topic) continue;
+    const key = `${topic.subject_slug}/${topic.year_level}/${topic.slug}`;
     const pct = Math.round((a.score / a.total) * 100);
     const existing = summaryMap.get(key);
     if (!existing) {
       summaryMap.set(key, {
-        subject: a.subject,
-        year: a.year,
-        topicSlug: a.topic_slug,
-        title: titleMap[key] ?? a.topic_slug.replace(/-/g, " "),
+        subject: topic.subject_slug,
+        year: topic.year_level,
+        topicSlug: topic.slug,
+        title: topic.title,
         attemptCount: 1,
         bestPct: pct,
         latestPct: pct,
@@ -155,15 +170,10 @@ function Skeleton() {
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-interface Props {
-  /** Pre-built at server render time from getAllTopics() */
-  titleMap: Record<string, string>;
-}
-
-export function ProgressClient({ titleMap }: Props) {
+export function ProgressClient() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [attempts, setAttempts] = useState<AttemptRow[]>([]);
 
   useEffect(() => {
     const configured =
@@ -184,11 +194,27 @@ export function ProgressClient({ titleMap }: Props) {
 
       const { data: rows } = await supabase
         .from("attempts")
-        .select("*")
+        .select(`
+          id,
+          score,
+          total,
+          created_at,
+          worksheets (
+            id,
+            title,
+            topics (
+              subject_slug,
+              year_level,
+              slug,
+              title
+            )
+          )
+        `)
         .eq("user_id", user.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      setAttempts(rows ?? []);
+      setAttempts((rows ?? []) as AttemptRow[]);
       setStatus("ready");
     });
   }, [router]);
@@ -203,7 +229,7 @@ export function ProgressClient({ titleMap }: Props) {
         )
       : 0;
   const streak = calcStreak(attempts);
-  const groups = buildGroups(attempts, titleMap);
+  const groups = buildGroups(attempts);
 
   return (
     <PageContainer as="main">

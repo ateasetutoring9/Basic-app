@@ -18,7 +18,11 @@
       "Bash(curl -s -o /dev/null -w \"/signup/ => %{http_code}\\\\n\" http://localhost:3003/signup/)",
       "Bash(curl -s -o /dev/null -w \"/progress \\(unauthed\\) => %{http_code}\\\\n\" http://localhost:3006/progress/)",
       "Bash(curl -s -o /dev/null -w \"/worksheet/math/9/algebra-intro => %{http_code}\\\\n\" http://localhost:3006/worksheet/math/9/algebra-intro/)",
-      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|svg|webp|gif|ico|woff2?|ttf|otf\\)$')"
+      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|svg|webp|gif|ico|woff2?|ttf|otf\\)$')",
+      "Bash(node -e \"console.log\\(require\\('./\\\\\"c:/Users/harsh/project/Basic app/package.json\\\\\"'\\).dependencies.next\\)\")",
+      "Bash(xargs grep *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

@@ -174,6 +174,31 @@ npm run content:check
 
 It catches missing fields, bad JSON, and invalid question types before they reach production.
 
+### Content editor (`/edit`)
+
+A frontend-only editor for authoring topic content without touching the filesystem directly. No auth, no database — validates locally and copies file-ready JSON to the clipboard for manual pasting into `content/` folders.
+
+**Files created**
+
+| File | Purpose |
+|---|---|
+| `app/edit/page.tsx` | Route `/edit` — thin server shell |
+| `app/edit/EditorClient.tsx` | Full 3-tab editor with validation, preview, Save, Copy JSON |
+| `components/admin/QuestionEditor.tsx` | Shared question editor component (extracted from `WorksheetEditorClient`) |
+| `components/lecture/MarkdownPreview.tsx` | Client-boundary re-export of `MarkdownContent` for use inside client trees |
+| `components/admin/WorksheetEditorClient.tsx` | Modified — removed ~150 lines of duplicated question logic; now imports from `QuestionEditor` |
+
+**How it works**
+
+The editor has three tabs — **Topic**, **Lecture**, and **Worksheet** — each with an **Edit / Preview** toggle.
+
+- **Topic tab** — fills in `meta.json`: subject, year level (7–12), slug, title, description, and order index. Preview shows how the topic card appears on the browse page.
+- **Lecture tab** — choose a format (Markdown / YouTube / Slides HTML); only the relevant field is shown. Preview fires the real student-facing viewer (`MarkdownContent`, `YouTubeFacade`, or `SlidesViewer`) with the in-memory content.
+- **Worksheet tab** — set a title and build a question list using the shared `QuestionEditor` component. Preview hands the constructed `Worksheet` object directly to `WorksheetClient` so you see exactly what students will see.
+- **Save** — validates all tabs with Zod, then `console.log`s the full payload and shows a "Saved (stub)" toast. No persistence yet.
+- **Copy JSON** — copies the active tab's file-ready JSON to clipboard (Topic → `meta.json`, Lecture → frontmatter/slides, Worksheet → `worksheet.json`).
+- **Validation** — inline field errors appear on blur and on a failed save attempt; Save is disabled until all errors clear.
+
 ### Adding a new subject
 
 1. Add its slug to the `Subject` union in `lib/content/types.ts`

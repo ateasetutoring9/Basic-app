@@ -51,12 +51,10 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
             .from("attempts")
             .insert({
               user_id: user.id,
-              subject: worksheet.subject,
-              year: worksheet.year,
-              topic_slug: worksheet.topicSlug,
               worksheet_id: worksheet.id,
               score: graded.score,
               total: graded.total,
+              answers,
             })
             .then(({ error }) => {
               if (error) console.error("[At Ease Learning] Failed to save attempt:", error.message);

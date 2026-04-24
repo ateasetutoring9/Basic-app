@@ -1,7 +1,6 @@
 // ─── Taxonomy ─────────────────────────────────────────────────────────────────
 
-/** Add more subjects here as the platform grows. */
-export type Subject = "math"; // | 'science' | 'english' | 'history'
+export type Subject = "math" | "science" | "english" | "social-studies";
 
 export type YearLevel = 7 | 8 | 9 | 10 | 11 | 12;
 

@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Retired: content now lives in Supabase. Delete this folder after DB migration is verified.
+/content
