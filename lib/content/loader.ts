@@ -1,40 +1,73 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Subject, YearLevel, Topic, Lecture, Worksheet, Question } from "./types";
+import { createServerClient } from "@/lib/supabase/server";
+import type { Topic, Subject, Year, Lecture, Worksheet, Question } from "./types";
 
-function getClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
+// Selects the full topic tree: subject → year, plus lecture and worksheet.
 const TOPIC_SELECT = `
   id,
-  subject_slug,
-  year_level,
-  slug,
+  sync_id,
   title,
   description,
-  order_index,
-  lectures ( format, content, deleted_at ),
-  worksheets ( id, title, questions, deleted_at )
+  thumbnail_url,
+  is_published,
+  subjects (
+    id,
+    sync_id,
+    name,
+    description,
+    display_order,
+    is_active,
+    years (
+      id,
+      sync_id,
+      name,
+      display_name,
+      is_active
+    )
+  ),
+  lectures (
+    format,
+    title,
+    content,
+    deleted_at
+  ),
+  worksheets (
+    id,
+    sync_id,
+    title,
+    questions,
+    difficulty,
+    deleted_at
+  )
 ` as const;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(row: any): Topic {
-  const subject = row.subject_slug as Subject;
-  const year = row.year_level as YearLevel;
-  const slug = row.slug as string;
-
-  const base = {
-    id: row.id as string,
-    subject,
-    year,
-    topicSlug: slug,
-    title: row.title as string,
-    description: (row.description ?? "") as string,
-    orderIndex: row.order_index as number,
+function mapYear(row: any): Year {
+  return {
+    id: row.id as number,
+    syncId: row.sync_id as string,
+    name: row.name as string,
+    displayName: row.display_name as string,
+    isActive: row.is_active as boolean,
   };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSubject(row: any): Subject {
+  return {
+    id: row.id as number,
+    syncId: row.sync_id as string,
+    name: row.name as string,
+    description: row.description as string | null,
+    displayOrder: row.display_order as number,
+    isActive: row.is_active as boolean,
+    year: mapYear(row.years),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRow(row: any): Topic {
+  const subjectRow = Array.isArray(row.subjects) ? row.subjects[0] : row.subjects;
+  const subject = mapSubject(subjectRow);
 
   let lecture: Lecture | undefined;
   const lecRow = Array.isArray(row.lectures) ? row.lectures[0] : row.lectures;
@@ -42,17 +75,25 @@ function mapRow(row: any): Topic {
     const c = lecRow.content as Record<string, unknown>;
     if (lecRow.format === "video") {
       lecture = {
-        ...base,
         format: "video",
+        title: lecRow.title as string,
         content: {
           youtubeId: c.youtube_id as string,
           durationSeconds: c.duration_seconds as number | undefined,
         },
       };
     } else if (lecRow.format === "slides") {
-      lecture = { ...base, format: "slides", content: c.html as string };
+      lecture = {
+        format: "slides",
+        title: lecRow.title as string,
+        content: c.html as string,
+      };
     } else {
-      lecture = { ...base, format: "text", content: c.markdown as string };
+      lecture = {
+        format: "text",
+        title: lecRow.title as string,
+        content: c.markdown as string,
+      };
     }
   }
 
@@ -60,78 +101,70 @@ function mapRow(row: any): Topic {
   const wsRow = Array.isArray(row.worksheets) ? row.worksheets[0] : row.worksheets;
   if (wsRow && !wsRow.deleted_at) {
     worksheet = {
-      id: wsRow.id as string,
-      subject,
-      year,
-      topicSlug: slug,
+      id: wsRow.id as number,
+      syncId: wsRow.sync_id as string,
       title: wsRow.title as string,
       questions: wsRow.questions as Question[],
+      difficulty: wsRow.difficulty as number,
     };
   }
 
   return {
-    subject,
-    year,
-    slug,
+    id: row.id as number,
+    syncId: row.sync_id as string,
     title: row.title as string,
-    description: (row.description ?? "") as string,
-    orderIndex: row.order_index as number,
+    description: row.description as string | null,
+    thumbnailUrl: row.thumbnail_url as string | null,
+    isPublished: row.is_published as boolean,
+    subject,
     lecture,
     worksheet,
   };
 }
 
 export async function getAllTopics(): Promise<Topic[]> {
-  const supabase = getClient();
-  if (!supabase) return [];
+  const supabase = createServerClient();
 
   const { data, error } = await supabase
     .from("topics")
     .select(TOPIC_SELECT)
     .is("deleted_at", null)
     .eq("is_published", true)
-    .order("order_index");
+    .order("id");
 
   if (error || !data) return [];
   return data.map(mapRow);
 }
 
-export async function getTopic(
-  subject: Subject,
-  year: YearLevel,
-  slug: string
-): Promise<Topic | null> {
-  const supabase = getClient();
-  if (!supabase) return null;
+export async function getTopicBySyncId(syncId: string): Promise<Topic | null> {
+  const supabase = createServerClient();
 
   const { data, error } = await supabase
     .from("topics")
     .select(TOPIC_SELECT)
     .is("deleted_at", null)
-    .eq("is_published", true)
-    .eq("subject_slug", subject)
-    .eq("year_level", year)
-    .eq("slug", slug)
+    .eq("sync_id", syncId)
     .single();
 
   if (error || !data) return null;
   return mapRow(data);
 }
 
-export async function getSubjects(): Promise<
-  { subject: Subject; yearCounts: Partial<Record<YearLevel, number>> }[]
-> {
-  const topics = await getAllTopics();
-  const map = new Map<Subject, Partial<Record<YearLevel, number>>>();
+// Returns all unique subjects (with their year) that have at least one
+// published topic — used to build the browse navigation.
+export async function getActiveSubjects(): Promise<Subject[]> {
+  const supabase = createServerClient();
 
-  for (const topic of topics) {
-    if (!map.has(topic.subject)) map.set(topic.subject, {});
-    const yc = map.get(topic.subject)!;
-    yc[topic.year] = (yc[topic.year] ?? 0) + 1;
-  }
+  const { data, error } = await supabase
+    .from("subjects")
+    .select(`
+      id, sync_id, name, description, display_order, is_active,
+      years ( id, sync_id, name, display_name, is_active )
+    `)
+    .is("deleted_at", null)
+    .eq("is_active", true)
+    .order("display_order");
 
-  return Array.from(map.entries()).map(([subject, yearCounts]) => ({
-    subject,
-    yearCounts,
-  }));
+  if (error || !data) return [];
+  return data.map(mapSubject);
 }

@@ -1,28 +1,13 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-export function createClient() {
-  const cookieStore = cookies();
-
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Server Component context — the middleware handles session refresh
-          }
-        },
-      },
-    }
-  );
+// Server-side client. Uses the service role key so it bypasses row-level
+// policies (there are none in v3, but this is the correct key for server use).
+// Never import this in client components — use lib/supabase/client.ts instead.
+export function createServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient<Database>(url, key);
 }

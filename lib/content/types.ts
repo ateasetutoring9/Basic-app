@@ -1,35 +1,44 @@
-// ─── Taxonomy ─────────────────────────────────────────────────────────────────
+// ─── Year ─────────────────────────────────────────────────────────────────────
 
-export type Subject = "math" | "science" | "english" | "social-studies";
+export interface Year {
+  id: number;
+  syncId: string;
+  name: string;        // e.g. "year-7"
+  displayName: string; // e.g. "Year 7"
+  isActive: boolean;
+}
 
-export type YearLevel = 7 | 8 | 9 | 10 | 11 | 12;
+// ─── Subject ──────────────────────────────────────────────────────────────────
 
-export type LectureFormat = "text" | "video" | "slides";
+export interface Subject {
+  id: number;
+  syncId: string;
+  name: string;        // e.g. "Mathematics"
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  year: Year;
+}
 
 // ─── Lecture ──────────────────────────────────────────────────────────────────
 
-interface LectureBase {
-  id: string;
-  subject: Subject;
-  year: YearLevel;
-  topicSlug: string;
-  title: string;
-  description: string;
-  orderIndex: number;
-}
+export type LectureFormat = "text" | "video" | "slides";
 
-export interface TextLecture extends LectureBase {
+export interface TextLecture {
   format: "text";
+  title: string;
   content: string; // raw markdown
 }
 
-export interface VideoLecture extends LectureBase {
+export interface VideoLecture {
   format: "video";
+  title: string;
   content: { youtubeId: string; durationSeconds?: number };
 }
 
-export interface SlidesLecture extends LectureBase {
+export interface SlidesLecture {
   format: "slides";
+  title: string;
   content: string; // raw HTML
 }
 
@@ -42,8 +51,7 @@ export interface MultipleChoiceQuestion {
   id: string;
   text: string;
   options: string[];
-  /** Zero-based index into options */
-  answer: number;
+  answer: number; // zero-based index into options
   explanation?: string;
 }
 
@@ -52,7 +60,6 @@ export interface NumericQuestion {
   id: string;
   text: string;
   answer: number;
-  /** Acceptable delta from the correct answer (default 0) */
   tolerance?: number;
   unit?: string;
   explanation?: string;
@@ -61,10 +68,8 @@ export interface NumericQuestion {
 export interface FillBlankQuestion {
   type: "fill-blank";
   id: string;
-  /** Use ___ as the blank placeholder */
-  text: string;
+  text: string; // use ___ as the blank placeholder
   acceptedAnswers: string[];
-  /** Default: false */
   caseSensitive?: boolean;
   explanation?: string;
 }
@@ -77,23 +82,25 @@ export type Question =
 // ─── Worksheet ────────────────────────────────────────────────────────────────
 
 export interface Worksheet {
-  id: string;
-  subject: Subject;
-  year: YearLevel;
-  topicSlug: string;
+  id: number;
+  syncId: string;
   title: string;
   questions: Question[];
+  difficulty: number; // 1–5
 }
 
 // ─── Topic (assembled) ────────────────────────────────────────────────────────
 
+// Topics are identified externally by syncId (uuid).
+// subject and year are always included via join — never null on a loaded topic.
 export interface Topic {
-  subject: Subject;
-  year: YearLevel;
-  slug: string;
+  id: number;
+  syncId: string;
   title: string;
-  description: string;
-  orderIndex: number;
+  description: string | null;
+  thumbnailUrl: string | null;
+  isPublished: boolean;
+  subject: Subject;
   lecture?: Lecture;
   worksheet?: Worksheet;
 }
