@@ -47,7 +47,7 @@ export default async function AdminWorksheetsPage() {
                   {yearTopics.map((topic) => (
                     <li key={topic.slug}>
                       <Link
-                        href={`/admin/worksheets/${topic.subject}/${topic.year}/${topic.slug}`}
+                        href={`/admin/worksheets/edit?subject=${topic.subject}&year=${topic.year}&slug=${topic.slug}`}
                         className="flex items-center justify-between rounded-xl border border-border bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
                       >
                         <span className="font-medium text-fg">{topic.title}</span>
