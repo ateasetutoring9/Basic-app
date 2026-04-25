@@ -2,31 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
+import { getSession } from "@/lib/auth/session";
+import type { SessionUser } from "@/lib/auth/session";
 import LogoutButton from "@/components/LogoutButton";
 
 export function HomeAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
-    const configured =
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!configured) return;
-
-    import("@/lib/supabase/client").then(({ createClient }) => {
-      const supabase = createClient();
-
-      supabase.auth.getUser().then(({ data }) => setUser(data.user));
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-      });
-
-      return () => subscription.unsubscribe();
-    });
+    getSession().then(setUser);
   }, []);
 
   if (user) {

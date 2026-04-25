@@ -262,6 +262,105 @@ npm ci → npm run content:check → npm run lint → npm run build
 
 No Supabase secrets are required in CI — auth is purely client-side, so the build succeeds without the env vars set.
 
+## v3 schema migration
+
+Full migration from the v1 schema (Supabase Auth, RLS, filesystem content) to the v3 schema (custom `users` table, no RLS, all content in Supabase DB). See `CLAUDE.md` and `supabase/README.md` for the complete architectural specification.
+
+### Routing changes
+
+| Before | After |
+|--------|-------|
+| `/learn/[subject]/[year]/[topic]` | `/learn/[syncId]` |
+| `/worksheet/[subject]/[year]/[topic]` | `/worksheet/[syncId]` |
+| Browse `[subject]` param = slug string | Browse `[subject]` param = `subject.syncId` (UUID) |
+| Browse `[year]` param = number | Browse `[year]` param = `year.name` (e.g. `"year-7"`) |
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `app/learn/[syncId]/page.tsx` | **New** — replaces `[subject]/[year]/[topic]/page.tsx`; uses `getTopicBySyncId()` |
+| `app/worksheet/[syncId]/page.tsx` | **New** — replaces `[subject]/[year]/[topic]/page.tsx`; uses `getTopicBySyncId()` |
+| `app/browse/page.tsx` | Rewritten — derives year slots from `getActiveSubjects()` instead of a hardcoded array |
+| `app/browse/[year]/page.tsx` | Rewritten — `[year]` is `year.name`; subjects fetched from DB, no hardcoded catalogue |
+| `app/browse/[year]/[subject]/page.tsx` | Rewritten — `[subject]` is `subject.syncId`; topic links use `syncId` |
+| `lib/content/types.ts` | Rewritten — v3 types: `Year`, `Subject` (with `year`), `Topic` (with `syncId`, `subject`, no `slug`/`year`/`orderIndex`) |
+| `lib/content/loader.ts` | Rewritten — `getAllTopics()`, `getTopicBySyncId()`, `getActiveSubjects()` all query Supabase |
+| `lib/supabase/database.types.ts` | Rewritten — v3 tables: `users`, `years`, `subjects`, `topics`, `lectures`, `worksheets`, `attempts`, `comments`, `reports` |
+| `lib/supabase/client.ts` | Fixed import alias conflict; removed `supabase.auth.*` note |
+| `lib/supabase/server.ts` | Rewritten — plain `createClient` with service role key; removed `@supabase/ssr` |
+| `lib/auth/session.ts` | **New** — `getSession()`, `login()`, `signup()`, `logout()` helpers; calls `/api/auth/*` |
+| `middleware.ts` | Stripped Supabase Auth session refresh; now a pass-through |
+| `components/auth/LoginForm.tsx` | Replaced `supabase.auth.signInWithPassword` with `login()` from `lib/auth/session` |
+| `components/auth/SignupForm.tsx` | Replaced `supabase.auth.signUp` with `signup()` from `lib/auth/session` |
+| `components/LogoutButton.tsx` | Replaced `supabase.auth.signOut` with `logout()` from `lib/auth/session` |
+| `components/NavAuth.tsx` | Replaced `supabase.auth.getUser` + `onAuthStateChange` with `getSession()` |
+| `components/HomeAuth.tsx` | Same as NavAuth |
+| `components/WorksheetClient.tsx` | Attempt save uses `getSession()` → `user.id` (number); no more `supabase.auth` |
+| `components/ProgressClient.tsx` | Rewritten — v3 join structure (`attempts → worksheets → topics → subjects → years`); groups by `subjectName`/`yearDisplay`; Review links to `/learn/${syncId}` |
+| `app/admin/worksheets/page.tsx` | Groups by `topic.subject.name` / `topic.subject.year.displayName`; edit links use `?syncId=` |
+| `app/admin/worksheets/edit/EditWorksheetClient.tsx` | Looks up topics by `sync_id`; passes `topicId`/`topicSyncId` to editor |
+| `components/admin/WorksheetEditorClient.tsx` | Props changed to `topicId`/`topicSyncId`; API calls updated |
+| `app/api/admin/worksheet/route.ts` | Replaced filesystem writes with Supabase DB upsert/soft-delete |
+| `app/api/auth/login/route.ts` | **New** — stub; implement credential validation against `users` table |
+| `app/api/auth/signup/route.ts` | **New** — stub; implement user creation with hashed password |
+| `app/api/auth/logout/route.ts` | **New** — stub; clears session cookie |
+| `app/api/auth/me/route.ts` | **New** — stub; returns current user from session token |
+| `app/edit/EditorClient.tsx` | Fixed preview `Worksheet` to use v3 type (`id: number`, `syncId`, `difficulty`) |
+| `scripts/validate-content.ts` | Updated to use v3 `Topic` properties (`topic.subject.name`, `topic.syncId`) |
+| `supabase/README.md` | Rewritten for v3 schema |
+| `CLAUDE.md` | Rewritten for v3 schema |
+
+### Environment variables
+
+Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` for the server client (falls back to anon key if absent):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+### What's still a stub
+
+~~The `/api/auth/*` routes return `501 Not Implemented`.~~ Auth is now fully implemented — see below.
+
+---
+
+## Auth implementation
+
+Replaces the stub `/api/auth/*` routes with a working credential-based auth system against the `users` table. No Supabase Auth — sessions are JWT cookies issued by the API.
+
+### Packages added
+
+| Package | Purpose |
+|---------|---------|
+| `bcryptjs` | Password hashing (cost 12); pure JS, edge-compatible |
+| `jose` | JWT sign/verify using HMAC-SHA256; edge-compatible |
+| `@types/bcryptjs` | TypeScript types for bcryptjs |
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `lib/auth/jwt.ts` | **New** — `signToken()`, `verifyToken()`, shared `COOKIE_NAME` and `COOKIE_OPTIONS` (HTTP-only, SameSite=Lax, 7-day expiry, `secure` in production) |
+| `app/api/auth/signup/route.ts` | Implemented — checks for duplicate email, hashes password with bcrypt, inserts into `users`, returns signed JWT cookie |
+| `app/api/auth/login/route.ts` | Implemented — fetches user by email, runs `bcrypt.compare` (always runs even when user not found to prevent timing enumeration), checks `locked_until`, increments `failed_login_attempts` on failure / resets on success, sets JWT cookie |
+| `app/api/auth/me/route.ts` | Implemented — reads session cookie, verifies JWT, returns `{ id, syncId, email, isAdmin }` |
+| `app/api/auth/logout/route.ts` | Implemented — deletes session cookie |
+
+### Environment variable required
+
+Add to `.env.local` (and to Cloudflare Pages environment variables before deploying):
+
+```
+JWT_SECRET=<long-random-string>
+```
+
+Falls back to a hardcoded dev string if unset — **must be set in production** or tokens can be forged.
+
+---
+
 ## Polish pass — audit findings & fixes
 
 | Area | Finding | Fix |

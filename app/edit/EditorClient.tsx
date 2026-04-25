@@ -17,7 +17,7 @@ import {
 } from "@/components/admin/QuestionEditor";
 import type { EditorQuestion } from "@/components/admin/QuestionEditor";
 import { WorksheetFileSchema } from "@/lib/content/schemas";
-import type { Subject, YearLevel, Worksheet } from "@/lib/content/types";
+import type { Worksheet } from "@/lib/content/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -343,7 +343,6 @@ export function EditorClient() {
           onBlur={(f) => touch(`worksheet.${f}`)}
           errors={worksheetVisible}
           preview={isPreview}
-          topicState={topic}
         />
       )}
 
@@ -627,14 +626,12 @@ function WorksheetTab({
   onBlur,
   errors,
   preview,
-  topicState,
 }: {
   state: WorksheetState;
   onChange: (s: WorksheetState) => void;
   onBlur: (field: string) => void;
   errors: Record<string, string>;
   preview: boolean;
-  topicState: TopicState;
 }) {
   function set(patch: Partial<WorksheetState>) {
     onChange({ ...state, ...patch });
@@ -670,12 +667,11 @@ function WorksheetTab({
       return <EmptyPreview message="Add at least one question with text to see a preview." />;
     }
     const previewWorksheet: Worksheet = {
-      id: `${topicState.subject || "math"}-year${topicState.year || "7"}-${topicState.slug || "preview"}`,
-      subject: (topicState.subject as Subject) || "math",
-      year: (parseInt(topicState.year) as YearLevel) || 7,
-      topicSlug: topicState.slug || "preview",
+      id: 0,
+      syncId: "preview",
       title: state.title || "Preview Worksheet",
       questions: previewableQuestions,
+      difficulty: 1,
     };
     return (
       <WorksheetClient

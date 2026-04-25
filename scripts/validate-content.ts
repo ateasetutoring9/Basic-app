@@ -1,6 +1,6 @@
 /**
  * Run with: npm run content:check
- * Loads all content from /content, validates it, and prints a summary.
+ * Loads all topics from the DB, validates them, and prints a summary.
  */
 
 import { getAllTopics } from "@/lib/content/loader";
@@ -22,14 +22,14 @@ async function main() {
   }
 
   if (topics.length === 0) {
-    console.log("No topics found in /content. Add some content and re-run.\n");
+    console.log("No topics found. Seed the DB and re-run.\n");
     return;
   }
 
   // Group by subject + year for display
   const groups = new Map<string, Topic[]>();
   for (const t of topics) {
-    const key = `${t.subject} / Year ${t.year}`;
+    const key = `${t.subject.name} / ${t.subject.year.displayName}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
   }
@@ -48,7 +48,7 @@ async function main() {
       const format = t.lecture ? `[${t.lecture.format}]` : "[no lecture]";
 
       console.log(
-        `    ${badge(true)} ${t.slug.padEnd(30)} ` +
+        `    ${badge(true)} ${t.syncId.padEnd(36)} ` +
           `lecture ${badge(hasLecture)} ${format.padEnd(10)} ` +
           `worksheet ${badge(hasWorksheet)}` +
           (hasWorksheet ? ` (${qCount} q)` : "")

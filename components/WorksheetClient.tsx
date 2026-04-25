@@ -38,15 +38,12 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
     setPhase("results");
 
     // Fire-and-forget save — never blocks the user from seeing their score
-    const configured =
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (configured) {
-      import("@/lib/supabase/client").then(({ createClient }) => {
-        const supabase = createClient();
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (!user) return;
-          setIsAuthenticated(true);
+    import("@/lib/auth/session").then(({ getSession }) => {
+      getSession().then((user) => {
+        if (!user) return;
+        setIsAuthenticated(true);
+        import("@/lib/supabase/client").then(({ createClient }) => {
+          const supabase = createClient();
           supabase
             .from("attempts")
             .insert({
@@ -61,7 +58,7 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
             });
         });
       });
-    }
+    });
   }
 
   function handleRetry() {

@@ -14,16 +14,15 @@ import type { Worksheet } from "@/lib/content/types";
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  subject: string;
-  year: string;
-  slug: string;
+  topicId: number;
+  topicSyncId: string;
   topicTitle: string;
   initialWorksheet: Worksheet | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function WorksheetEditorClient({ subject, year, slug, topicTitle, initialWorksheet }: Props) {
+export function WorksheetEditorClient({ topicId, topicSyncId, topicTitle, initialWorksheet }: Props) {
   const [title, setTitle] = useState(initialWorksheet?.title ?? `${topicTitle} Worksheet`);
   const [questions, setQuestions] = useState<EditorQuestion[]>(
     initialWorksheet ? worksheetToEditorQuestions(initialWorksheet) : [blankQuestion()]
@@ -32,7 +31,6 @@ export function WorksheetEditorClient({ subject, year, slug, topicTitle, initial
   const [errorMsg, setErrorMsg] = useState("");
 
   const apiBase = `/api/admin/worksheet`;
-  const apiQuery = `?subject=${subject}&year=${year}&slug=${slug}`;
 
   async function handleSave() {
     setStatus("saving");
@@ -42,9 +40,8 @@ export function WorksheetEditorClient({ subject, year, slug, topicTitle, initial
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject,
-          year,
-          slug,
+          topicId,
+          topicSyncId,
           title,
           questions: editorQuestionsToPayload(questions),
         }),
@@ -65,7 +62,7 @@ export function WorksheetEditorClient({ subject, year, slug, topicTitle, initial
     if (!confirm("Delete this worksheet? This cannot be undone.")) return;
     setStatus("deleting");
     try {
-      await fetch(`${apiBase}${apiQuery}`, { method: "DELETE" });
+      await fetch(`${apiBase}?topicSyncId=${topicSyncId}`, { method: "DELETE" });
       setQuestions([blankQuestion()]);
       setTitle(`${topicTitle} Worksheet`);
       setStatus("idle");
@@ -101,9 +98,6 @@ export function WorksheetEditorClient({ subject, year, slug, topicTitle, initial
     <div className="max-w-3xl">
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold mb-2">
-            Dev tool
-          </span>
           <h1 className="text-2xl font-bold text-fg">{topicTitle}</h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getAllTopics, getTopic } from "@/lib/content/loader";
+import { getAllTopics, getTopicBySyncId } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { WorksheetClient } from "@/components/WorksheetClient";
-import type { Subject, YearLevel } from "@/lib/content/types";
 
 export const dynamicParams = false;
 
@@ -12,23 +11,15 @@ export async function generateStaticParams() {
   const topics = await getAllTopics();
   return topics
     .filter((t) => !!t.worksheet)
-    .map((t) => ({ subject: t.subject, year: String(t.year), topic: t.slug }));
+    .map((t) => ({ syncId: t.syncId }));
 }
 
-const SUBJECT_LABELS: Record<string, string> = {
-  math: "Mathematics",
-  science: "Science",
-  english: "English",
-  history: "History",
-};
-
 interface Props {
-  params: { subject: string; year: string; topic: string };
+  params: { syncId: string };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const year = parseInt(params.year, 10) as YearLevel;
-  const topic = await getTopic(params.subject as Subject, year, params.topic);
+  const topic = await getTopicBySyncId(params.syncId);
   return {
     title: topic ? `${topic.title} — Worksheet` : "Worksheet",
     description: topic
@@ -38,15 +29,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function WorksheetPage({ params }: Props) {
-  const { subject, year: yearStr, topic: slug } = params;
-  const year = parseInt(yearStr, 10) as YearLevel;
+  const topic = await getTopicBySyncId(params.syncId);
+  if (!topic?.worksheet) notFound();
 
-  const topicData = await getTopic(subject as Subject, year, slug);
-  if (!topicData?.worksheet) notFound();
-
-  const { worksheet, title } = topicData;
-  const subjectLabel = SUBJECT_LABELS[subject] ?? subject;
-  const topicUrl = `/learn/${subject}/${yearStr}/${slug}`;
+  const { worksheet, title, subject } = topic;
+  const yearName = subject.year.name;
+  const yearDisplay = subject.year.displayName;
+  const topicUrl = `/learn/${topic.syncId}`;
 
   return (
     <PageContainer as="main">
@@ -54,9 +43,9 @@ export default async function WorksheetPage({ params }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${yearStr}`} className="hover:text-fg transition-colors">Year {yearStr}</Link>
+        <Link href={`/browse/${yearName}`} className="hover:text-fg transition-colors">{yearDisplay}</Link>
         <span aria-hidden>/</span>
-        <Link href={`/browse/${yearStr}/${subject}`} className="hover:text-fg transition-colors">{subjectLabel}</Link>
+        <Link href={`/browse/${yearName}/${subject.syncId}`} className="hover:text-fg transition-colors">{subject.name}</Link>
         <span aria-hidden>/</span>
         <Link href={topicUrl} className="hover:text-fg transition-colors">{title}</Link>
         <span aria-hidden>/</span>

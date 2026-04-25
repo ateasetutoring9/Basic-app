@@ -5,20 +5,19 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { WorksheetEditorClient } from "@/components/admin/WorksheetEditorClient";
-import type { Worksheet, Question, Subject, YearLevel } from "@/lib/content/types";
+import type { Worksheet, Question } from "@/lib/content/types";
 
 export function EditWorksheetClient() {
   const searchParams = useSearchParams();
-  const subject = searchParams.get("subject") ?? "";
-  const yearStr = searchParams.get("year") ?? "";
-  const slug = searchParams.get("slug") ?? "";
+  const syncId = searchParams.get("syncId") ?? "";
 
   const [status, setStatus] = useState<"loading" | "ready" | "not-found">("loading");
   const [topicTitle, setTopicTitle] = useState("");
+  const [topicId, setTopicId] = useState<number | null>(null);
   const [initialWorksheet, setInitialWorksheet] = useState<Worksheet | null>(null);
 
   useEffect(() => {
-    if (!subject || !yearStr || !slug) {
+    if (!syncId) {
       setStatus("not-found");
       return;
     }
@@ -29,12 +28,10 @@ export function EditWorksheetClient() {
       .select(`
         id,
         title,
-        worksheets ( id, title, questions, deleted_at )
+        worksheets ( id, sync_id, title, questions, difficulty, deleted_at )
       `)
       .is("deleted_at", null)
-      .eq("subject_slug", subject)
-      .eq("year_level", parseInt(yearStr, 10))
-      .eq("slug", slug)
+      .eq("sync_id", syncId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -43,6 +40,7 @@ export function EditWorksheetClient() {
         }
 
         setTopicTitle(data.title);
+        setTopicId(data.id as number);
 
         const wsRow = Array.isArray(data.worksheets)
           ? data.worksheets[0]
@@ -50,18 +48,17 @@ export function EditWorksheetClient() {
 
         if (wsRow && !wsRow.deleted_at) {
           setInitialWorksheet({
-            id: wsRow.id,
-            subject: subject as Subject,
-            year: parseInt(yearStr, 10) as YearLevel,
-            topicSlug: slug,
-            title: wsRow.title,
+            id: wsRow.id as number,
+            syncId: wsRow.sync_id as string,
+            title: wsRow.title as string,
             questions: wsRow.questions as unknown as Question[],
+            difficulty: wsRow.difficulty as number,
           });
         }
 
         setStatus("ready");
       });
-  }, [subject, yearStr, slug]);
+  }, [syncId]);
 
   if (status === "loading") {
     return <div className="text-muted text-sm animate-pulse">Loading topic…</div>;
@@ -89,9 +86,8 @@ export function EditWorksheetClient() {
       </nav>
 
       <WorksheetEditorClient
-        subject={subject}
-        year={yearStr}
-        slug={slug}
+        topicId={topicId!}
+        topicSyncId={syncId}
         topicTitle={topicTitle}
         initialWorksheet={initialWorksheet}
       />

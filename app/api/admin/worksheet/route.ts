@@ -1,58 +1,70 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
-import { WorksheetFileSchema } from "@/lib/content/schemas";
+import { createServerClient } from "@/lib/supabase/server";
 
-const CONTENT_DIR = path.join(process.cwd(), "content");
-
-function worksheetPath(subject: string, year: string, slug: string) {
-  return path.join(CONTENT_DIR, subject, `year-${year}`, slug, "worksheet.json");
-}
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const subject = searchParams.get("subject");
-  const year = searchParams.get("year");
-  const slug = searchParams.get("slug");
-  if (!subject || !year || !slug) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
-  }
-  try {
-    const raw = await fs.readFile(worksheetPath(subject, year, slug), "utf-8");
-    return NextResponse.json(JSON.parse(raw));
-  } catch {
-    return NextResponse.json(null);
-  }
-}
-
+// POST body: { topicId: number; topicSyncId: string; title: string; questions: Question[] }
 export async function POST(req: Request) {
   const body = await req.json();
-  const { subject, year, slug, ...data } = body;
-  if (!subject || !year || !slug) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  const { topicId, title, questions } = body;
+
+  if (!topicId || !title || !Array.isArray(questions)) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
-  const parsed = WorksheetFileSchema.safeParse(data);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+
+  const supabase = createServerClient();
+
+  // Upsert: if a worksheet already exists for this topic, update it; otherwise insert.
+  const { data: existing } = await supabase
+    .from("worksheets")
+    .select("id")
+    .eq("topic_id", topicId)
+    .is("deleted_at", null)
+    .single();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("worksheets")
+      .update({ title, questions })
+      .eq("id", existing.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  } else {
+    const { error } = await supabase
+      .from("worksheets")
+      .insert({ topic_id: topicId, title, questions, difficulty: 1 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  const filePath = worksheetPath(subject, year, slug);
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(parsed.data, null, 2), "utf-8");
+
   return NextResponse.json({ ok: true });
 }
 
+// DELETE ?topicSyncId=<uuid> — soft-deletes the worksheet for the given topic
 export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
-  const subject = searchParams.get("subject");
-  const year = searchParams.get("year");
-  const slug = searchParams.get("slug");
-  if (!subject || !year || !slug) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  const topicSyncId = searchParams.get("topicSyncId");
+
+  if (!topicSyncId) {
+    return NextResponse.json({ error: "Missing topicSyncId" }, { status: 400 });
   }
-  try {
-    await fs.unlink(worksheetPath(subject, year, slug));
-  } catch {
-    // file didn't exist — that's fine
+
+  const supabase = createServerClient();
+
+  // Resolve topic sync_id → id
+  const { data: topic } = await supabase
+    .from("topics")
+    .select("id")
+    .eq("sync_id", topicSyncId)
+    .single();
+
+  if (!topic) {
+    return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
+
+  const { error } = await supabase
+    .from("worksheets")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("topic_id", topic.id)
+    .is("deleted_at", null);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
   return NextResponse.json({ ok: true });
 }

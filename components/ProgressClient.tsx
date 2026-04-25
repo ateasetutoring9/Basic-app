@@ -3,33 +3,29 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getSession } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/client";
 import { PageContainer } from "@/components/ui/PageContainer";
-
-// ─── Subject display names ────────────────────────────────────────────────────
-
-const SUBJECT_LABELS: Record<string, string> = {
-  math: "Mathematics",
-  science: "Science",
-  english: "English",
-  "social-studies": "Social Studies",
-};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AttemptRow {
-  id: string;
+  id: number;
   score: number;
   total: number;
   created_at: string;
   worksheets: {
-    id: string;
+    id: number;
     title: string;
     topics: {
-      subject_slug: string;
-      year_level: number;
-      slug: string;
+      sync_id: string;
       title: string;
+      subjects: {
+        name: string;
+        years: {
+          display_name: string;
+        } | null;
+      } | null;
     } | null;
   } | null;
 }
@@ -62,29 +58,31 @@ function calcStreak(attempts: AttemptRow[]): number {
 // ─── Grouping ─────────────────────────────────────────────────────────────────
 
 interface TopicSummary {
-  topicSlug: string;
+  topicSyncId: string;
   title: string;
   attemptCount: number;
   bestPct: number;
   latestPct: number;
 }
-interface YearGroup { year: number; topics: TopicSummary[] }
-interface SubjectGroup { subject: string; label: string; years: YearGroup[] }
+interface YearGroup { yearDisplay: string; topics: TopicSummary[] }
+interface SubjectGroup { subjectName: string; years: YearGroup[] }
 
 function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
-  const summaryMap = new Map<string, TopicSummary & { subject: string; year: number }>();
+  const summaryMap = new Map<string, TopicSummary & { subjectName: string; yearDisplay: string }>();
 
   for (const a of attempts) {
     const topic = a.worksheets?.topics;
     if (!topic) continue;
-    const key = `${topic.subject_slug}/${topic.year_level}/${topic.slug}`;
+    const subjectName = topic.subjects?.name ?? "Unknown";
+    const yearDisplay = topic.subjects?.years?.display_name ?? "";
+    const key = topic.sync_id;
     const pct = Math.round((a.score / a.total) * 100);
     const existing = summaryMap.get(key);
     if (!existing) {
       summaryMap.set(key, {
-        subject: topic.subject_slug,
-        year: topic.year_level,
-        topicSlug: topic.slug,
+        subjectName,
+        yearDisplay,
+        topicSyncId: topic.sync_id,
         title: topic.title,
         attemptCount: 1,
         bestPct: pct,
@@ -96,22 +94,27 @@ function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
     }
   }
 
-  const subjectMap = new Map<string, Map<number, TopicSummary[]>>();
+  const subjectMap = new Map<string, Map<string, TopicSummary[]>>();
   for (const s of Array.from(summaryMap.values())) {
-    if (!subjectMap.has(s.subject)) subjectMap.set(s.subject, new Map());
-    const ym = subjectMap.get(s.subject)!;
-    if (!ym.has(s.year)) ym.set(s.year, []);
-    ym.get(s.year)!.push({ topicSlug: s.topicSlug, title: s.title, attemptCount: s.attemptCount, bestPct: s.bestPct, latestPct: s.latestPct });
+    if (!subjectMap.has(s.subjectName)) subjectMap.set(s.subjectName, new Map());
+    const ym = subjectMap.get(s.subjectName)!;
+    if (!ym.has(s.yearDisplay)) ym.set(s.yearDisplay, []);
+    ym.get(s.yearDisplay)!.push({
+      topicSyncId: s.topicSyncId,
+      title: s.title,
+      attemptCount: s.attemptCount,
+      bestPct: s.bestPct,
+      latestPct: s.latestPct,
+    });
   }
 
   return Array.from(subjectMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([subject, ym]) => ({
-      subject,
-      label: SUBJECT_LABELS[subject] ?? subject,
-      years: Array.from(ym.entries() as Iterable<[number, TopicSummary[]]>)
-        .sort(([a], [b]) => a - b)
-        .map(([year, topics]) => ({ year, topics })),
+    .map(([subjectName, ym]) => ({
+      subjectName,
+      years: Array.from(ym.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([yearDisplay, topics]) => ({ yearDisplay, topics })),
     }));
 }
 
@@ -176,22 +179,13 @@ export function ProgressClient() {
   const [attempts, setAttempts] = useState<AttemptRow[]>([]);
 
   useEffect(() => {
-    const configured =
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!configured) {
-      router.replace("/login");
-      return;
-    }
-
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    getSession().then(async (user) => {
       if (!user) {
         router.replace("/login");
         return;
       }
 
+      const supabase = createClient();
       const { data: rows } = await supabase
         .from("attempts")
         .select(`
@@ -203,10 +197,12 @@ export function ProgressClient() {
             id,
             title,
             topics (
-              subject_slug,
-              year_level,
-              slug,
-              title
+              sync_id,
+              title,
+              subjects (
+                name,
+                years ( display_name )
+              )
             )
           )
         `)
@@ -214,7 +210,7 @@ export function ProgressClient() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      setAttempts((rows ?? []) as AttemptRow[]);
+      setAttempts((rows ?? []) as unknown as AttemptRow[]);
       setStatus("ready");
     });
   }, [router]);
@@ -268,18 +264,18 @@ export function ProgressClient() {
 
       {/* ── Topic groups ── */}
       {groups.map((sg) => (
-        <section key={sg.subject} className="mb-10">
-          <h2 className="text-xl font-bold text-fg mb-4">{sg.label}</h2>
+        <section key={sg.subjectName} className="mb-10">
+          <h2 className="text-xl font-bold text-fg mb-4">{sg.subjectName}</h2>
 
           {sg.years.map((yg) => (
-            <div key={yg.year} className="mb-6">
+            <div key={yg.yearDisplay} className="mb-6">
               <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">
-                Year {yg.year}
+                {yg.yearDisplay}
               </h3>
 
               <ul className="flex flex-col gap-3">
                 {yg.topics.map((t) => (
-                  <li key={t.topicSlug}>
+                  <li key={t.topicSyncId}>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border bg-white shadow-sm p-5">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-fg leading-snug mb-2 capitalize">
@@ -296,7 +292,7 @@ export function ProgressClient() {
                         </div>
                       </div>
                       <Link
-                        href={`/learn/${sg.subject}/${yg.year}/${t.topicSlug}`}
+                        href={`/learn/${t.topicSyncId}`}
                         className="shrink-0 inline-flex items-center justify-center min-h-[44px] px-5 rounded-lg border border-border text-sm font-semibold text-fg hover:bg-gray-50 transition-colors"
                       >
                         Review
