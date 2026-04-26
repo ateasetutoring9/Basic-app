@@ -4,19 +4,13 @@ import { notFound } from "next/navigation";
 import { getActiveSubjects } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  const subjects = await getActiveSubjects();
-  const years = new Set(subjects.map((s) => s.year.name));
-  return Array.from(years).map((year) => ({ year }));
-}
+export const dynamic = "force-dynamic";
 
 const SUBJECT_ACCENTS: Record<string, string> = {
   Mathematics: "border-indigo-400",
-  Science: "border-emerald-400",
-  English: "border-amber-400",
-  History: "border-rose-400",
+  Science:     "border-emerald-400",
+  English:     "border-amber-400",
+  History:     "border-rose-400",
 };
 
 interface Props {
@@ -35,7 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function YearPage({ params }: Props) {
   const allSubjects = await getActiveSubjects();
-  const subjectsForYear = allSubjects.filter((s) => s.year.name === params.year);
+  const subjectsForYear = allSubjects
+    .filter((s) => s.year.name === params.year)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
   if (subjectsForYear.length === 0) notFound();
 
@@ -62,11 +58,9 @@ export default async function YearPage({ params }: Props) {
                 href={`/browse/${params.year}/${subject.syncId}`}
                 className="group flex flex-col h-full rounded-xl border border-border bg-white shadow-sm hover:shadow-md hover:border-indigo-300 transition-all p-6 min-h-[100px]"
               >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <span className={`w-1.5 self-stretch rounded-full ${accent} bg-current`} />
-                  <div className="flex-1">
-                    <span className="text-lg font-bold text-fg leading-tight">{subject.name}</span>
-                  </div>
+                <div className="flex items-start gap-3 mb-3">
+                  <span className={`w-1.5 self-stretch rounded-full ${accent} bg-current shrink-0`} />
+                  <span className="text-lg font-bold text-fg leading-tight">{subject.name}</span>
                 </div>
                 {subject.description && (
                   <p className="text-sm text-muted leading-relaxed">{subject.description}</p>

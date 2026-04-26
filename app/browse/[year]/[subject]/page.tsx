@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAllTopics } from "@/lib/content/loader";
+import { createServerClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/ui/PageContainer";
 
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  const topics = await getAllTopics();
-  const seen = new Set<string>();
-  return topics
-    .filter((t) => {
-      const key = `${t.subject.year.name}-${t.subject.syncId}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map((t) => ({ year: t.subject.year.name, subject: t.subject.syncId }));
-}
+export const dynamic = "force-dynamic";
 
 const FORMAT_BADGE: Record<string, { label: string; classes: string }> = {
   text:   { label: "Text",   classes: "bg-indigo-100 text-indigo-700" },
@@ -29,87 +16,138 @@ interface Props {
   params: { year: string; subject: string };
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const topics = await getAllTopics();
-  const match = topics.find(
-    (t) => t.subject.year.name === params.year && t.subject.syncId === params.subject
-  );
-  if (!match) return { title: "Topics" };
+interface TopicRow {
+  id: number;
+  sync_id: string;
+  title: string;
+  description: string | null;
+  lectures: { format: string; deleted_at: string | null }[];
+}
+
+async function getSubjectWithTopics(yearName: string, subjectSyncId: string) {
+  const supabase = createServerClient();
+
+  // Resolve the subject by sync_id, also pulling in the year to verify the URL matches
+  const { data: subject } = await supabase
+    .from("subjects")
+    .select(`
+      id, name, description, display_order, sync_id,
+      years!inner ( name, display_name )
+    `)
+    .eq("sync_id", subjectSyncId)
+    .eq("years.name", yearName)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .single();
+
+  if (!subject) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const yr = Array.isArray((subject as any).years) ? (subject as any).years[0] : (subject as any).years;
+
+  // Fetch published topics for this subject
+  const { data: topics } = await supabase
+    .from("topics")
+    .select(`
+      id, sync_id, title, description,
+      lectures ( format, deleted_at )
+    `)
+    .eq("subject_id", subject.id)
+    .eq("is_published", true)
+    .is("deleted_at", null)
+    .order("id");
+
   return {
-    title: `${match.subject.year.displayName} ${match.subject.name}`,
-    description: `${match.subject.year.displayName} ${match.subject.name} topics on At Ease Learning — free lectures and worksheets.`,
+    subject: {
+      name: subject.name as string,
+      description: subject.description as string | null,
+      year: { name: yr.name as string, displayName: yr.display_name as string },
+    },
+    topics: (topics ?? []) as TopicRow[],
+  };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const result = await getSubjectWithTopics(params.year, params.subject);
+  if (!result) return { title: "Topics" };
+  const { subject } = result;
+  return {
+    title: `${subject.year.displayName} ${subject.name}`,
+    description: `${subject.year.displayName} ${subject.name} topics on At Ease Learning — free lectures and worksheets.`,
   };
 }
 
 export default async function YearSubjectPage({ params }: Props) {
-  const allTopics = await getAllTopics();
-  const topics = allTopics
-    .filter((t) => t.subject.year.name === params.year && t.subject.syncId === params.subject)
-    .sort((a, b) => a.id - b.id);
+  const result = await getSubjectWithTopics(params.year, params.subject);
+  if (!result) notFound();
 
-  if (topics.length === 0) notFound();
-
-  const { subject } = topics[0];
-  const yearDisplay = subject.year.displayName;
+  const { subject, topics } = result;
 
   return (
     <PageContainer as="main">
       <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
         <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
         <span aria-hidden="true">/</span>
-        <Link href={`/browse/${params.year}`} className="hover:text-fg transition-colors">{yearDisplay}</Link>
+        <Link href={`/browse/${params.year}`} className="hover:text-fg transition-colors">
+          {subject.year.displayName}
+        </Link>
         <span aria-hidden="true">/</span>
         <span className="text-fg font-medium">{subject.name}</span>
       </nav>
 
       <h1 className="text-3xl font-bold text-fg mb-2">
-        {yearDisplay} — {subject.name}
+        {subject.year.displayName} — {subject.name}
       </h1>
       <p className="text-muted mb-8">
         {topics.length} topic{topics.length !== 1 ? "s" : ""}
       </p>
 
-      <ul className="flex flex-col gap-4">
-        {topics.map((topic) => {
-          const fmt = topic.lecture?.format;
-          const badge = fmt ? FORMAT_BADGE[fmt] : null;
+      {topics.length === 0 ? (
+        <p className="text-muted">No topics available yet for this subject.</p>
+      ) : (
+        <ul className="flex flex-col gap-4">
+          {topics.map((topic) => {
+            const lecRow = Array.isArray(topic.lectures) ? topic.lectures[0] : topic.lectures;
+            const lecture = lecRow && !lecRow.deleted_at ? lecRow : null;
+            const badge = lecture ? FORMAT_BADGE[lecture.format] : null;
 
-          return (
-            <li key={topic.syncId}>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-border bg-white shadow-sm p-5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h2 className="text-base font-bold text-fg leading-snug">{topic.title}</h2>
-                    {badge && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.classes}`}>
-                        {badge.label}
+            return (
+              <li key={topic.sync_id}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-border bg-white shadow-sm p-5">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h2 className="text-base font-bold text-fg leading-snug">{topic.title}</h2>
+                      {badge && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.classes}`}>
+                          {badge.label}
+                        </span>
+                      )}
+                    </div>
+                    {topic.description && (
+                      <p className="text-sm text-muted leading-relaxed line-clamp-2">{topic.description}</p>
+                    )}
+                  </div>
+
+                  <div className="shrink-0">
+                    {lecture ? (
+                      <Link
+                        href={`/learn/${topic.sync_id}`}
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[88px] px-5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
+                      >
+                        Start
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center justify-center min-h-[44px] min-w-[88px] px-5 rounded-lg border border-border text-sm text-muted cursor-not-allowed">
+                        Coming soon
                       </span>
                     )}
                   </div>
-                  {topic.description && (
-                    <p className="text-sm text-muted leading-relaxed line-clamp-2">{topic.description}</p>
-                  )}
                 </div>
-
-                <div className="shrink-0">
-                  {topic.lecture ? (
-                    <Link
-                      href={`/learn/${topic.syncId}`}
-                      className="inline-flex items-center justify-center min-h-[44px] min-w-[88px] px-5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
-                    >
-                      Start
-                    </Link>
-                  ) : (
-                    <span className="inline-flex items-center justify-center min-h-[44px] min-w-[88px] px-5 rounded-lg border border-border text-sm text-muted cursor-not-allowed">
-                      No lecture
-                    </span>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </PageContainer>
   );
 }

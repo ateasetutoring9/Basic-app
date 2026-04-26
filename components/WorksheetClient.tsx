@@ -26,7 +26,9 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
   const { questions } = worksheet;
   const current = questions[currentIndex];
   const isLast = currentIndex === questions.length - 1;
-  const currentAnswered = (answers[current.id] ?? "").trim().length > 0;
+  // essays don't require an answer to proceed; mcq_multi uses comma-separated indices
+  const currentAnswered =
+    current.type === "essay" || (answers[current.id] ?? "").trim().length > 0;
 
   function setAnswer(id: string, value: string) {
     setAnswers((prev) => ({ ...prev, [id]: value }));
@@ -146,7 +148,7 @@ function QuestionRenderer({
   answer: string;
   onAnswer: (val: string) => void;
 }) {
-  if (question.type === "multiple-choice") {
+  if (question.type === "mcq_single") {
     return (
       <fieldset>
         <legend className="text-xl font-semibold text-fg leading-relaxed mb-6">
@@ -170,6 +172,50 @@ function QuestionRenderer({
                   value={idx}
                   checked={selected}
                   onChange={() => onAnswer(String(idx))}
+                  className="accent-primary w-4 h-4 shrink-0"
+                />
+                <span className="text-fg leading-relaxed">{option}</span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (question.type === "mcq_multi") {
+    // answer stored as comma-separated indices e.g. "0,2"
+    const selected = answer
+      ? answer.split(",").map((s) => parseInt(s, 10)).filter((n) => !isNaN(n))
+      : [];
+    const toggle = (idx: number) => {
+      const next = selected.includes(idx)
+        ? selected.filter((i) => i !== idx)
+        : [...selected, idx];
+      onAnswer(next.sort((a, b) => a - b).join(","));
+    };
+    return (
+      <fieldset>
+        <legend className="text-xl font-semibold text-fg leading-relaxed mb-2">
+          {question.text}
+        </legend>
+        <p className="text-sm text-muted mb-5">Select all that apply.</p>
+        <div className="flex flex-col gap-3">
+          {question.options.map((option, idx) => {
+            const checked = selected.includes(idx);
+            return (
+              <label
+                key={idx}
+                className={`flex items-center gap-4 rounded-xl border p-4 cursor-pointer transition-colors min-h-[56px] ${
+                  checked
+                    ? "border-primary bg-indigo-50"
+                    : "border-border hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(idx)}
                   className="accent-primary w-4 h-4 shrink-0"
                 />
                 <span className="text-fg leading-relaxed">{option}</span>
@@ -208,7 +254,30 @@ function QuestionRenderer({
     );
   }
 
-  // fill-blank
+  if (question.type === "short_text") {
+    return (
+      <div>
+        <label
+          htmlFor={question.id}
+          className="block text-xl font-semibold text-fg leading-relaxed mb-6"
+        >
+          {question.text}
+        </label>
+        <input
+          id={question.id}
+          type="text"
+          value={answer}
+          onChange={(e) => onAnswer(e.target.value)}
+          className="w-full max-w-sm rounded-xl border border-border px-4 py-3 text-lg text-fg min-h-[52px] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+          placeholder="Type your answer…"
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </div>
+    );
+  }
+
+  // essay
   return (
     <div>
       <label
@@ -217,16 +286,15 @@ function QuestionRenderer({
       >
         {question.text}
       </label>
-      <input
+      <textarea
         id={question.id}
-        type="text"
         value={answer}
         onChange={(e) => onAnswer(e.target.value)}
-        className="w-full max-w-sm rounded-xl border border-border px-4 py-3 text-lg text-fg min-h-[52px] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
-        placeholder="Type your answer…"
-        autoComplete="off"
-        spellCheck={false}
+        rows={6}
+        className="w-full rounded-xl border border-border px-4 py-3 text-base text-fg min-h-[140px] resize-y focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+        placeholder="Write your response here…"
       />
+      <p className="text-xs text-muted mt-2">This response is not auto-graded.</p>
     </div>
   );
 }

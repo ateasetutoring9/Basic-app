@@ -150,8 +150,22 @@ export async function getTopicBySyncId(syncId: string): Promise<Topic | null> {
   return mapRow(data);
 }
 
-// Returns all unique subjects (with their year) that have at least one
-// published topic — used to build the browse navigation.
+// Returns all active years from the DB, ordered by name (year-7 first).
+export async function getActiveYears(): Promise<Year[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from("years")
+    .select("id, sync_id, name, display_name, is_active")
+    .is("deleted_at", null)
+    .eq("is_active", true)
+    .order("name");
+
+  if (error || !data) return [];
+  return data.map(mapYear);
+}
+
+// Returns all active subjects with their parent year — used for browse navigation.
 export async function getActiveSubjects(): Promise<Subject[]> {
   const supabase = createServerClient();
 

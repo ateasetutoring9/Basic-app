@@ -373,3 +373,91 @@ Falls back to a hardcoded dev string if unset — **must be set in production** 
 | **Mobile (360 px)** | Progress stats grid (`grid-cols-3 p-5 text-3xl`) was too tight at narrow widths | Responsive padding (`p-3 sm:p-5`), font size (`text-2xl sm:text-3xl`), and gap (`gap-2 sm:gap-3`) |
 | **Empty states** | All list views already handled empty states correctly | No changes needed |
 | **Dev showcase** | `/dev-showcase` route was accessible in production | Deleted `app/dev-showcase/page.tsx` and `components/ui/_showcase.tsx` |
+
+---
+
+## Admin content authoring system
+
+Full CRUD admin interface for managing the content hierarchy (Years → Subjects → Topics → Lecture + Worksheet) without touching the database directly.
+
+### Admin pages
+
+| Route | Purpose |
+|-------|---------|
+| `/admin` | Dashboard with live counts of years, subjects, published topics, and worksheets |
+| `/admin/years` | List, create, and edit year levels; toggle active status; links to Subjects filtered by year |
+| `/admin/subjects` | List, create, and edit subjects; year filter tabs; topic count per row; links to Topics filtered by subject |
+| `/admin/topics` | List, create topics (metadata only); subject filter tabs; publish toggle; links to topic detail |
+| `/admin/topics/[syncId]` | Topic detail — collapsible metadata editor, markdown lecture editor with live preview, worksheet summary card |
+| `/admin/topics/[syncId]/worksheet` | Full worksheet editor — title, difficulty (1–5), publish toggle, all 5 question types |
+
+### Question types
+
+The worksheet editor supports five question types stored in the `worksheets.questions` JSONB column:
+
+| Type | `type` field | Auto-graded | Notes |
+|------|-------------|-------------|-------|
+| Multiple choice (single) | `mcq_single` | Yes | `answer` is a zero-based index into `options` |
+| Multiple choice (multi) | `mcq_multi` | Yes | `answers` is an array of zero-based indices; student must select all |
+| Short text | `short_text` | Yes | Matched against `acceptedAnswers`; optional `caseSensitive` flag |
+| Numeric | `numeric` | Yes | `answer` number with optional `tolerance` (±) and `unit` display string |
+| Essay | `essay` | No | Free-text response; `hint` shown after submission; never counted as correct |
+
+### Migration
+
+`supabase/migrations/0003_worksheet_versioning.sql` — adds `worksheet_history_id bigint` to `attempts` and `attempts_history` so each submission records which exact version of the worksheet it was answering. Run this in the Supabase SQL editor before deploying the new worksheet editor.
+
+---
+
+## API reference
+
+All routes under `/api/` are Next.js Route Handlers. Admin routes have no auth guard in code yet — protect them at the infrastructure level (or add session checks) before exposing publicly.
+
+### Auth — `/api/auth/*`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `POST` | `/api/auth/signup` | `{ email, password }` | `{ id, syncId, email }` + sets `session` cookie | Creates a new user, hashes password with bcrypt, issues a signed JWT |
+| `POST` | `/api/auth/login` | `{ email, password }` | `{ id, syncId, email }` + sets `session` cookie | Verifies password, checks account lock, resets/increments `failed_login_attempts`, issues JWT |
+| `GET` | `/api/auth/me` | — | `{ id, syncId, email, isAdmin }` or `401` | Reads the `session` cookie and returns the current user |
+| `POST` | `/api/auth/logout` | — | `{ ok: true }` | Clears the `session` cookie |
+
+### Years — `/api/admin/years`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `GET` | `/api/admin/years` | — | `Year[]` | All year levels ordered by `name` |
+| `POST` | `/api/admin/years` | `{ name, display_name, is_active? }` | Created `Year` (201) | Creates a new year level |
+| `PATCH` | `/api/admin/years/[id]` | Any subset of `{ name, display_name, is_active }` | Updated `Year` | Partial update; `[id]` is the integer PK |
+
+### Subjects — `/api/admin/subjects`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `GET` | `/api/admin/subjects` | — | `Subject[]` with nested `years` | All subjects (non-deleted), ordered by `display_order`, including parent year data |
+| `POST` | `/api/admin/subjects` | `{ year_id, name, description?, display_order?, is_active? }` | Created `Subject` (201) | Creates a subject under a year |
+| `PATCH` | `/api/admin/subjects/[id]` | Any subset of `{ year_id, name, description, display_order, is_active }` | Updated `Subject` | Partial update |
+
+### Topics — `/api/admin/topics`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `GET` | `/api/admin/topics` | — | Camel-cased `Topic[]` (published **and** draft) with nested subject/year | All non-deleted topics for the admin list — unlike the public loader which filters `is_published = true` |
+| `POST` | `/api/admin/topics` | `{ subject_id, title, description?, thumbnail_url?, is_published? }` | Created topic with `sync_id` (201) | Creates a new topic; `is_published` defaults to `false` |
+| `GET` | `/api/admin/topics/sync/[syncId]` | — | Full topic object with `lecture` and `worksheet` fields | Fetches a single topic by its `sync_id` for the detail page; includes the current lecture (content JSONB) and worksheet (questions JSONB + difficulty) |
+| `PATCH` | `/api/admin/topics/[id]` | Any subset of `{ subject_id, title, description, thumbnail_url, is_published }` | Updated topic | Partial update; triggers `published_at` via DB trigger on first publish |
+| `DELETE` | `/api/admin/topics/[id]` | — | `{ ok: true }` | Soft-deletes by setting `deleted_at`; does **not** hard-delete |
+
+### Lectures — `/api/admin/lectures`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `POST` | `/api/admin/lectures` | `{ topicId, title, format, content }` | `{ ok: true }` | Upserts the lecture for a topic. `format` must be `"text"`, `"video"`, or `"slides"`. For `text`, `content` is a markdown string stored as `{ markdown: "..." }`. For `video`, `content` is `{ youtubeId, durationSeconds? }`. For `slides`, `content` is an HTML string. If a lecture already exists for the topic it is updated; otherwise a new row is inserted. |
+
+### Worksheets — `/api/admin/worksheet`
+
+| Method | Path | Body / Query | Returns | Purpose |
+|--------|------|-------------|---------|---------|
+| `GET` | `/api/admin/worksheet?topicId=<n>` | `topicId` integer in query | `{ worksheet, attemptCount }` | Returns the current worksheet for a topic (or `null`) plus the count of non-deleted attempts — used by the editor to show the attempt warning before overwriting questions |
+| `POST` | `/api/admin/worksheet` | `{ topicId, title, questions, difficulty?, isPublished? }` | `{ ok: true }` | Upserts the worksheet. `questions` is an array of question objects (see question types above). `difficulty` is 1–5 (defaults to 1). If a worksheet already exists for the topic it is updated; otherwise a new row is inserted. |
+| `DELETE` | `/api/admin/worksheet?topicSyncId=<uuid>` | `topicSyncId` UUID in query | `{ ok: true }` | Soft-deletes the worksheet by resolving `sync_id → id` then setting `deleted_at`. Existing attempt records are preserved. |

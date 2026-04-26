@@ -28,14 +28,32 @@ export const LectureFrontmatterSchema = z.discriminatedUnion("format", [
 
 export type LectureFrontmatter = z.infer<typeof LectureFrontmatterSchema>;
 
-// ─── worksheet.json ───────────────────────────────────────────────────────────
+// ─── Question schemas ─────────────────────────────────────────────────────────
 
-const MultipleChoiceSchema = z.object({
-  type: z.literal("multiple-choice"),
+const McqSingleSchema = z.object({
+  type: z.literal("mcq_single"),
   id: z.string().min(1),
   text: z.string().min(1),
-  options: z.array(z.string()).min(2, "multiple-choice needs at least 2 options"),
+  options: z.array(z.string()).min(2, "mcq_single needs at least 2 options"),
   answer: z.number().int().nonnegative(),
+  explanation: z.string().optional(),
+});
+
+const McqMultiSchema = z.object({
+  type: z.literal("mcq_multi"),
+  id: z.string().min(1),
+  text: z.string().min(1),
+  options: z.array(z.string()).min(2, "mcq_multi needs at least 2 options"),
+  answers: z.array(z.number().int().nonnegative()).min(1, "mcq_multi needs at least one correct answer"),
+  explanation: z.string().optional(),
+});
+
+const ShortTextSchema = z.object({
+  type: z.literal("short_text"),
+  id: z.string().min(1),
+  text: z.string().min(1),
+  acceptedAnswers: z.array(z.string()).min(1, "short_text needs at least one accepted answer"),
+  caseSensitive: z.boolean().optional(),
   explanation: z.string().optional(),
 });
 
@@ -49,21 +67,19 @@ const NumericSchema = z.object({
   explanation: z.string().optional(),
 });
 
-const FillBlankSchema = z.object({
-  type: z.literal("fill-blank"),
+const EssaySchema = z.object({
+  type: z.literal("essay"),
   id: z.string().min(1),
   text: z.string().min(1),
-  acceptedAnswers: z
-    .array(z.string())
-    .min(1, "fill-blank needs at least one accepted answer"),
-  caseSensitive: z.boolean().optional(),
-  explanation: z.string().optional(),
+  hint: z.string().optional(),
 });
 
 export const QuestionSchema = z.discriminatedUnion("type", [
-  MultipleChoiceSchema,
+  McqSingleSchema,
+  McqMultiSchema,
+  ShortTextSchema,
   NumericSchema,
-  FillBlankSchema,
+  EssaySchema,
 ]);
 
 export const WorksheetFileSchema = z.object({

@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import type { ButtonHTMLAttributes } from "react";
 
 type Variant = "primary" | "secondary" | "ghost";
-type Size    = "md" | "lg";
+type Size    = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -21,6 +21,7 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
+  sm: "px-3 py-1.5 text-sm  min-h-[32px]",
   md: "px-5 py-2.5 text-base min-h-[44px]",
   lg: "px-7 py-3.5 text-lg  min-h-[52px]",
 };

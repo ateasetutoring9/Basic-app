@@ -46,12 +46,30 @@ export type Lecture = TextLecture | VideoLecture | SlidesLecture;
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 
-export interface MultipleChoiceQuestion {
-  type: "multiple-choice";
+export interface McqSingleQuestion {
+  type: "mcq_single";
   id: string;
   text: string;
   options: string[];
-  answer: number; // zero-based index into options
+  answer: number; // zero-based index
+  explanation?: string;
+}
+
+export interface McqMultiQuestion {
+  type: "mcq_multi";
+  id: string;
+  text: string;
+  options: string[];
+  answers: number[]; // zero-based indices, all must be selected
+  explanation?: string;
+}
+
+export interface ShortTextQuestion {
+  type: "short_text";
+  id: string;
+  text: string;
+  acceptedAnswers: string[];
+  caseSensitive?: boolean;
   explanation?: string;
 }
 
@@ -65,19 +83,19 @@ export interface NumericQuestion {
   explanation?: string;
 }
 
-export interface FillBlankQuestion {
-  type: "fill-blank";
+export interface EssayQuestion {
+  type: "essay";
   id: string;
-  text: string; // use ___ as the blank placeholder
-  acceptedAnswers: string[];
-  caseSensitive?: boolean;
-  explanation?: string;
+  text: string;
+  hint?: string; // shown after submission
 }
 
 export type Question =
-  | MultipleChoiceQuestion
+  | McqSingleQuestion
+  | McqMultiQuestion
+  | ShortTextQuestion
   | NumericQuestion
-  | FillBlankQuestion;
+  | EssayQuestion;
 
 // ─── Worksheet ────────────────────────────────────────────────────────────────
 

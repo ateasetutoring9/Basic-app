@@ -157,6 +157,18 @@ One worksheet per topic. `UNIQUE (topic_id)` enforces the 1:1.
 
 Question structure is defined and validated in the API layer, not the DB.
 
+**Question types** (stored in `questions` JSONB, validated in `lib/content/schemas.ts`):
+
+| `type` | Auto-graded | Key fields |
+|--------|------------|------------|
+| `mcq_single` | Yes | `options: string[]`, `answer: number` (zero-based index) |
+| `mcq_multi` | Yes | `options: string[]`, `answers: number[]` (all must match) |
+| `short_text` | Yes | `acceptedAnswers: string[]`, `caseSensitive?: boolean` |
+| `numeric` | Yes | `answer: number`, `tolerance?: number`, `unit?: string` |
+| `essay` | No | `hint?: string` — free text, never counted correct |
+
+Do not use the old types `multiple-choice`, `fill-blank` — they no longer exist.
+
 ---
 
 ### `attempts`
@@ -169,6 +181,7 @@ A student's worksheet submission.
 | `score` | correct answers (≥ 0 check) |
 | `total` | total questions (> 0 check) |
 | `answers` | JSONB map of question id → student answer |
+| `worksheet_history_id` | FK → `worksheets_history.id`; records exact worksheet version answered |
 
 Attempts are effectively immutable once submitted. Do not expose an edit
 endpoint. Soft-delete only.
@@ -255,6 +268,25 @@ OR DELETE`. On `DELETE` it snapshots `OLD`; otherwise it snapshots `NEW`.
 - `users_history` stores `password_hash` and reset tokens. Anyone with read
   access to this table can read every credential that ever existed. Restrict
   access accordingly.
+
+---
+
+## Auth & Sessions
+
+Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, HS256).
+
+- **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`
+- **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
+- **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
+- **Admin layout** (`app/admin/layout.tsx`) — server component that reads the cookie with `next/headers`, verifies the JWT, and redirects to `/login` if not authenticated or to `/` if not admin. All `/admin/*` routes are protected here; individual pages need no extra check.
+- **Nav** — `NavAuth` shows a settings cog linking to `/admin` only when `user.isAdmin === true` after `getSession()` resolves.
+
+---
+
+## Admin vs Public API behaviour
+
+- `GET /api/admin/topics` — returns **all** non-deleted topics (published + draft). The public loader `getAllTopics()` filters `is_published = true` — do not use it in admin contexts.
+- Browse pages (`/browse`, `/browse/[year]`, `/browse/[year]/[subject]`) are `force-dynamic` — server-rendered on every request so new DB content appears immediately without a redeploy.
 
 ---
 
