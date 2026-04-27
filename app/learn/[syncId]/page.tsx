@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAllTopics, getTopicBySyncId } from "@/lib/content/loader";
+import { getTopicBySyncId } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 import MarkdownContent from "@/components/lecture/MarkdownContent";
 import YouTubeFacade from "@/components/lecture/YouTubeFacade";
 import SlidesViewer from "@/components/lecture/SlidesViewer";
 
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  const topics = await getAllTopics();
-  return topics
-    .filter((t) => !!t.lecture)
-    .map((t) => ({ syncId: t.syncId }));
-}
+export const dynamic = "force-dynamic";
 
 const FORMAT_LABELS: Record<string, string> = {
   text: "Reading",
@@ -39,21 +32,16 @@ export default async function LearnPage({ params }: Props) {
   if (!topic?.lecture) notFound();
 
   const { lecture, worksheet, title, description, subject } = topic;
-  const yearName = subject.year.name;       // e.g. "year-7"
-  const yearDisplay = subject.year.displayName; // e.g. "Year 7"
+  const yearName = subject.year.name;
 
   return (
     <PageContainer as="main">
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
-        <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
-        <span aria-hidden>/</span>
-        <Link href={`/browse/${yearName}`} className="hover:text-fg transition-colors">{yearDisplay}</Link>
-        <span aria-hidden>/</span>
-        <Link href={`/browse/${yearName}/${subject.syncId}`} className="hover:text-fg transition-colors">{subject.name}</Link>
-        <span aria-hidden>/</span>
-        <span className="text-fg font-medium">{title}</span>
-      </nav>
+      <Link
+        href={`/browse/${yearName}/${subject.syncId}`}
+        className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors mb-6"
+      >
+        ← {subject.name}
+      </Link>
 
       {/* Header */}
       <div className="mb-8">

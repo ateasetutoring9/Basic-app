@@ -85,15 +85,9 @@ export default async function YearSubjectPage({ params }: Props) {
 
   return (
     <PageContainer as="main">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted mb-6 flex items-center gap-1.5 flex-wrap">
-        <Link href="/browse" className="hover:text-fg transition-colors">Browse</Link>
-        <span aria-hidden="true">/</span>
-        <Link href={`/browse/${params.year}`} className="hover:text-fg transition-colors">
-          {subject.year.displayName}
-        </Link>
-        <span aria-hidden="true">/</span>
-        <span className="text-fg font-medium">{subject.name}</span>
-      </nav>
+      <Link href={`/browse/${params.year}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors mb-6">
+        ← {subject.year.displayName}
+      </Link>
 
       <h1 className="text-3xl font-bold text-fg mb-2">
         {subject.year.displayName} — {subject.name}

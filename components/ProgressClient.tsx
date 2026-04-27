@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "@/lib/auth/session";
-import { createClient } from "@/lib/supabase/client";
 import { PageContainer } from "@/components/ui/PageContainer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,6 +57,7 @@ function calcStreak(attempts: AttemptRow[]): number {
 
 interface TopicSummary {
   topicSyncId: string;
+  latestAttemptId: number;
   title: string;
   attemptCount: number;
   bestPct: number;
@@ -83,6 +82,7 @@ function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
         subjectName,
         yearDisplay,
         topicSyncId: topic.sync_id,
+        latestAttemptId: a.id,
         title: topic.title,
         attemptCount: 1,
         bestPct: pct,
@@ -101,6 +101,7 @@ function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
     if (!ym.has(s.yearDisplay)) ym.set(s.yearDisplay, []);
     ym.get(s.yearDisplay)!.push({
       topicSyncId: s.topicSyncId,
+      latestAttemptId: s.latestAttemptId,
       title: s.title,
       attemptCount: s.attemptCount,
       bestPct: s.bestPct,
@@ -179,40 +180,16 @@ export function ProgressClient() {
   const [attempts, setAttempts] = useState<AttemptRow[]>([]);
 
   useEffect(() => {
-    getSession().then(async (user) => {
-      if (!user) {
+    (async () => {
+      const res = await fetch("/api/progress", { credentials: "include" });
+      if (res.status === 401) {
         router.replace("/login");
         return;
       }
-
-      const supabase = createClient();
-      const { data: rows } = await supabase
-        .from("attempts")
-        .select(`
-          id,
-          score,
-          total,
-          created_at,
-          worksheets (
-            id,
-            title,
-            topics (
-              sync_id,
-              title,
-              subjects (
-                name,
-                years ( display_name )
-              )
-            )
-          )
-        `)
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-
-      setAttempts((rows ?? []) as unknown as AttemptRow[]);
+      const rows: AttemptRow[] = res.ok ? await res.json() : [];
+      setAttempts(rows);
       setStatus("ready");
-    });
+    })();
   }, [router]);
 
   if (status === "loading") return <Skeleton />;
@@ -292,7 +269,7 @@ export function ProgressClient() {
                         </div>
                       </div>
                       <Link
-                        href={`/learn/${t.topicSyncId}`}
+                        href={`/progress/${t.latestAttemptId}`}
                         className="shrink-0 inline-flex items-center justify-center min-h-[44px] px-5 rounded-lg border border-border text-sm font-semibold text-fg hover:bg-gray-50 transition-colors"
                       >
                         Review

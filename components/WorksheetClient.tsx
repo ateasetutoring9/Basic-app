@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/Button";
 interface Props {
   worksheet: Worksheet;
   topicUrl: string;
+  subjectUrl: string;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function WorksheetClient({ worksheet, topicUrl }: Props) {
+export function WorksheetClient({ worksheet, topicUrl, subjectUrl }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<"questions" | "results">("questions");
@@ -39,28 +40,24 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
     setResult(graded);
     setPhase("results");
 
-    // Fire-and-forget save — never blocks the user from seeing their score
-    import("@/lib/auth/session").then(({ getSession }) => {
-      getSession().then((user) => {
-        if (!user) return;
-        setIsAuthenticated(true);
-        import("@/lib/supabase/client").then(({ createClient }) => {
-          const supabase = createClient();
-          supabase
-            .from("attempts")
-            .insert({
-              user_id: user.id,
-              worksheet_id: worksheet.id,
-              score: graded.score,
-              total: graded.total,
-              answers,
-            })
-            .then(({ error }) => {
-              if (error) console.error("[At Ease Learning] Failed to save attempt:", error.message);
-            });
+    // Fire-and-forget — score shows immediately, save happens via API in background
+    (async () => {
+      try {
+        const res = await fetch("/api/attempts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            worksheetId: worksheet.id,
+            score: graded.score,
+            total: graded.total,
+            answers,
+          }),
         });
-      });
-    });
+        if (res.ok) setIsAuthenticated(true);
+      } catch {
+        // Non-fatal — score is still shown to the user
+      }
+    })();
   }
 
   function handleRetry() {
@@ -76,6 +73,7 @@ export function WorksheetClient({ worksheet, topicUrl }: Props) {
         result={result}
         worksheet={worksheet}
         topicUrl={topicUrl}
+        subjectUrl={subjectUrl}
         isAuthenticated={isAuthenticated}
         onRetry={handleRetry}
       />
@@ -329,12 +327,14 @@ function ResultsScreen({
   result,
   worksheet,
   topicUrl,
+  subjectUrl,
   isAuthenticated,
   onRetry,
 }: {
   result: GradingResult;
   worksheet: Worksheet;
   topicUrl: string;
+  subjectUrl: string;
   isAuthenticated: boolean;
   onRetry: () => void;
 }) {
@@ -414,7 +414,13 @@ function ResultsScreen({
           href={topicUrl}
           className="flex-1 inline-flex items-center justify-center min-h-[52px] px-7 rounded-xl border-2 border-fg text-fg text-lg font-semibold hover:bg-fg hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
         >
-          Back to Topic
+          ← Back to Lecture
+        </Link>
+        <Link
+          href={subjectUrl}
+          className="flex-1 inline-flex items-center justify-center min-h-[52px] px-7 rounded-xl bg-primary text-white text-lg font-semibold hover:bg-primary-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Browse Topics
         </Link>
       </div>
     </div>

@@ -1,7 +1,8 @@
 import { createServerClient } from "@/lib/supabase/server";
 import type { Topic, Subject, Year, Lecture, Worksheet, Question } from "./types";
 
-// Selects the full topic tree: subject → year, plus lecture and worksheet.
+// Selects topic + subject/year + lecture. Worksheets are fetched separately
+// by topic_id (integer) to avoid relying on the PostgREST FK join.
 const TOPIC_SELECT = `
   id,
   sync_id,
@@ -29,16 +30,10 @@ const TOPIC_SELECT = `
     title,
     content,
     deleted_at
-  ),
-  worksheets (
-    id,
-    sync_id,
-    title,
-    questions,
-    difficulty,
-    deleted_at
   )
 ` as const;
+
+const WORKSHEET_SELECT = "id, sync_id, title, questions, difficulty, deleted_at" as const;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapYear(row: any): Year {
@@ -133,7 +128,16 @@ export async function getAllTopics(): Promise<Topic[]> {
     .order("id");
 
   if (error || !data) return [];
-  return data.map(mapRow);
+
+  const topicIds = data.map((t) => t.id);
+  const { data: worksheets } = await supabase
+    .from("worksheets")
+    .select(`${WORKSHEET_SELECT}, topic_id`)
+    .in("topic_id", topicIds)
+    .is("deleted_at", null);
+
+  const wsMap = new Map((worksheets ?? []).map((ws) => [ws.topic_id, ws]));
+  return data.map((row) => mapRow({ ...row, worksheets: wsMap.get(row.id) ?? null }));
 }
 
 export async function getTopicBySyncId(syncId: string): Promise<Topic | null> {
@@ -147,7 +151,15 @@ export async function getTopicBySyncId(syncId: string): Promise<Topic | null> {
     .single();
 
   if (error || !data) return null;
-  return mapRow(data);
+
+  const { data: wsRow } = await supabase
+    .from("worksheets")
+    .select(WORKSHEET_SELECT)
+    .eq("topic_id", data.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  return mapRow({ ...data, worksheets: wsRow ?? null });
 }
 
 // Returns all active years from the DB, ordered by name (year-7 first).

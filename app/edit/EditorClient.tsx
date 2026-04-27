@@ -677,6 +677,7 @@ function WorksheetTab({
       <WorksheetClient
         worksheet={previewWorksheet}
         topicUrl="/edit"
+        subjectUrl="/browse"
       />
     );
   }
