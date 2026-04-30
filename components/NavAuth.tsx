@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
@@ -8,10 +9,11 @@ import LogoutButton from "@/components/LogoutButton";
 
 export function NavAuth() {
   const [user, setUser] = useState<SessionUser | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     getSession().then(setUser);
-  }, []);
+  }, [pathname]);
 
   if (user) {
     return (

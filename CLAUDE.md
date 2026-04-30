@@ -271,6 +271,34 @@ OR DELETE`. On `DELETE` it snapshots `OLD`; otherwise it snapshots `NEW`.
 
 ---
 
+## Route Groups — Zone Architecture
+
+The app is split into three Next.js App Router route groups. Route groups use
+parentheses and do not appear in URLs.
+
+| Zone | Folder | Navbar | Auth required |
+|---|---|---|---|
+| Public | `app/(public)/` | No | No |
+| Auth | `app/(auth)/` | No | No (logged-in users redirected to `/dashboard`) |
+| App | `app/(app)/` | Yes | Yes — layout redirects to `/login` if session invalid |
+
+**`app/(public)/`** — landing page only (`/`). No navbar. Visible to anyone.
+
+**`app/(auth)/`** — `/login`, `/signup`. No navbar, centered form layout.
+Middleware redirects logged-in users to `/dashboard` before the page renders.
+
+**`app/(app)/`** — all authenticated routes: `/dashboard`, `/browse`, `/learn`,
+`/worksheet`, `/progress`, `/admin`, `/edit`. Layout (`app/(app)/layout.tsx`)
+verifies the JWT server-side and redirects to `/login` if missing or invalid.
+Renders `TopNav` for all app-zone pages.
+
+**Middleware** (`middleware.ts`) — fast cookie-presence check only. Does not
+verify the JWT (that happens in the layout). Redirects:
+- Unauthenticated requests to any app-zone path → `/login`
+- Authenticated requests to `/login` or `/signup` → `/dashboard`
+
+---
+
 ## Auth & Sessions
 
 Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, HS256).
@@ -278,8 +306,10 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
-- **Admin layout** (`app/admin/layout.tsx`) — server component that reads the cookie with `next/headers`, verifies the JWT, and redirects to `/login` if not authenticated or to `/` if not admin. All `/admin/*` routes are protected here; individual pages need no extra check.
-- **Nav** — `NavAuth` shows a settings cog linking to `/admin` only when `user.isAdmin === true` after `getSession()` resolves.
+- **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
+- **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
+- **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
+- **Login** → redirects to `/dashboard`. **Logout** → clears cookie and redirects to `/login`.
 
 ---
 

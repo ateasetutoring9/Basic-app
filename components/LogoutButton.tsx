@@ -9,7 +9,7 @@ export default function LogoutButton() {
 
   async function handleLogout() {
     await logout();
-    router.push("/");
+    router.push("/login");
     router.refresh();
   }
 

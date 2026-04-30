@@ -20,40 +20,45 @@ interface AttemptRow {
       title: string;
       subjects: {
         name: string;
-        years: {
-          display_name: string;
-        } | null;
+        years: { display_name: string } | null;
       } | null;
     } | null;
   } | null;
 }
 
-// ─── Stats helpers ────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function calcStreak(attempts: AttemptRow[]): number {
   if (attempts.length === 0) return 0;
-
   const days = Array.from(
     new Set(attempts.map((a) => a.created_at.slice(0, 10)))
   ).sort((a, b) => (a > b ? -1 : 1));
-
   const todayStr = new Date().toISOString().slice(0, 10);
   const yesterdayStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-
   if (days[0] !== todayStr && days[0] !== yesterdayStr) return 0;
-
   let streak = 1;
   for (let i = 1; i < days.length; i++) {
     const prev = new Date(days[i - 1]);
     const curr = new Date(days[i]);
-    const diffDays = Math.round((prev.getTime() - curr.getTime()) / 86_400_000);
-    if (diffDays === 1) streak++;
+    if (Math.round((prev.getTime() - curr.getTime()) / 86_400_000) === 1) streak++;
     else break;
   }
   return streak;
 }
 
-// ─── Grouping ─────────────────────────────────────────────────────────────────
+function scoreBg(pct: number) {
+  if (pct >= 80) return "bg-green-100 text-green-800";
+  if (pct >= 60) return "bg-indigo-100 text-indigo-700";
+  return "bg-amber-100 text-amber-800";
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric", month: "short", year: "numeric",
+  });
+}
+
+// ─── Summary grouping ─────────────────────────────────────────────────────────
 
 interface TopicSummary {
   topicSyncId: string;
@@ -68,19 +73,16 @@ interface SubjectGroup { subjectName: string; years: YearGroup[] }
 
 function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
   const summaryMap = new Map<string, TopicSummary & { subjectName: string; yearDisplay: string }>();
-
   for (const a of attempts) {
     const topic = a.worksheets?.topics;
     if (!topic) continue;
-    const subjectName = topic.subjects?.name ?? "Unknown";
-    const yearDisplay = topic.subjects?.years?.display_name ?? "";
     const key = topic.sync_id;
     const pct = Math.round((a.score / a.total) * 100);
     const existing = summaryMap.get(key);
     if (!existing) {
       summaryMap.set(key, {
-        subjectName,
-        yearDisplay,
+        subjectName: topic.subjects?.name ?? "Unknown",
+        yearDisplay: topic.subjects?.years?.display_name ?? "",
         topicSyncId: topic.sync_id,
         latestAttemptId: a.id,
         title: topic.title,
@@ -119,23 +121,7 @@ function buildGroups(attempts: AttemptRow[]): SubjectGroup[] {
     }));
 }
 
-// ─── Score badge ──────────────────────────────────────────────────────────────
-
-function ScoreBadge({ pct, label }: { pct: number; label: string }) {
-  const colors =
-    pct >= 80
-      ? "bg-green-100 text-green-800"
-      : pct >= 60
-      ? "bg-indigo-100 text-indigo-700"
-      : "bg-amber-100 text-amber-800";
-  return (
-    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${colors}`}>
-      {label}: {pct}%
-    </span>
-  );
-}
-
-// ─── Stat card ────────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({ value, label }: { value: string | number; label: string }) {
   return (
@@ -146,7 +132,13 @@ function StatCard({ value, label }: { value: string | number; label: string }) {
   );
 }
 
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
+function ScoreBadge({ pct, label }: { pct: number; label: string }) {
+  return (
+    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${scoreBg(pct)}`}>
+      {label}: {pct}%
+    </span>
+  );
+}
 
 function Skeleton() {
   return (
@@ -172,92 +164,42 @@ function Skeleton() {
   );
 }
 
-// ─── Main client component ────────────────────────────────────────────────────
+// ─── Summary view ─────────────────────────────────────────────────────────────
 
-export function ProgressClient() {
-  const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [attempts, setAttempts] = useState<AttemptRow[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/progress", { credentials: "include" });
-      if (res.status === 401) {
-        router.replace("/login");
-        return;
-      }
-      const rows: AttemptRow[] = res.ok ? await res.json() : [];
-      setAttempts(rows);
-      setStatus("ready");
-    })();
-  }, [router]);
-
-  if (status === "loading") return <Skeleton />;
-
-  const total = attempts.length;
-  const avgPct =
-    total > 0
-      ? Math.round(
-          attempts.reduce((s, a) => s + (a.score / a.total) * 100, 0) / total
-        )
-      : 0;
-  const streak = calcStreak(attempts);
+function SummaryView({ attempts }: { attempts: AttemptRow[] }) {
   const groups = buildGroups(attempts);
 
-  return (
-    <PageContainer as="main">
-      <h1 className="text-3xl font-bold text-fg mb-1">Your Progress</h1>
-      <p className="text-muted mb-8">
-        {total === 0
-          ? "Start a worksheet to see your progress here."
-          : "Every attempt moves you forward — keep it up!"}
-      </p>
-
-      {/* ── Stats ── */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-10">
-        <StatCard value={total} label={total === 1 ? "Worksheet done" : "Worksheets done"} />
-        <StatCard value={total > 0 ? `${avgPct}%` : "—"} label="Average score" />
-        <StatCard
-          value={streak > 0 ? streak : "—"}
-          label={streak === 1 ? "Day streak" : "Day streak"}
-        />
+  if (attempts.length === 0) {
+    return (
+      <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+        <p className="text-lg font-semibold text-fg mb-2">Nothing here yet</p>
+        <p className="text-muted mb-6">Complete your first worksheet and your score will appear here.</p>
+        <Link
+          href="/browse"
+          className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
+        >
+          Browse Topics
+        </Link>
       </div>
+    );
+  }
 
-      {/* ── Empty state ── */}
-      {total === 0 && (
-        <div className="text-center py-16 rounded-2xl border border-dashed border-border">
-          <p className="text-lg font-semibold text-fg mb-2">Nothing here yet</p>
-          <p className="text-muted mb-6">
-            Complete your first worksheet and your score will appear here.
-          </p>
-          <Link
-            href="/browse"
-            className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
-          >
-            Browse Topics
-          </Link>
-        </div>
-      )}
-
-      {/* ── Topic groups ── */}
+  return (
+    <div className="flex flex-col gap-10">
       {groups.map((sg) => (
-        <section key={sg.subjectName} className="mb-10">
+        <section key={sg.subjectName}>
           <h2 className="text-xl font-bold text-fg mb-4">{sg.subjectName}</h2>
-
           {sg.years.map((yg) => (
             <div key={yg.yearDisplay} className="mb-6">
               <h3 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">
                 {yg.yearDisplay}
               </h3>
-
               <ul className="flex flex-col gap-3">
                 {yg.topics.map((t) => (
                   <li key={t.topicSyncId}>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border bg-white shadow-sm p-5">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-fg leading-snug mb-2 capitalize">
-                          {t.title}
-                        </p>
+                        <p className="font-semibold text-fg leading-snug mb-2">{t.title}</p>
                         <div className="flex flex-wrap items-center gap-2">
                           <ScoreBadge pct={t.bestPct} label="Best" />
                           {t.latestPct !== t.bestPct && (
@@ -272,7 +214,7 @@ export function ProgressClient() {
                         href={`/progress/${t.latestAttemptId}`}
                         className="shrink-0 inline-flex items-center justify-center min-h-[44px] px-5 rounded-lg border border-border text-sm font-semibold text-fg hover:bg-gray-50 transition-colors"
                       >
-                        Review
+                        Review latest
                       </Link>
                     </div>
                   </li>
@@ -282,6 +224,140 @@ export function ProgressClient() {
           ))}
         </section>
       ))}
+    </div>
+  );
+}
+
+// ─── History view ─────────────────────────────────────────────────────────────
+
+function HistoryView({ attempts }: { attempts: AttemptRow[] }) {
+  if (attempts.length === 0) {
+    return (
+      <div className="text-center py-16 rounded-2xl border border-dashed border-border">
+        <p className="text-lg font-semibold text-fg mb-2">No attempts yet</p>
+        <p className="text-muted mb-6">Your attempt history will appear here after you complete a worksheet.</p>
+        <Link
+          href="/browse"
+          className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
+        >
+          Browse Topics
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 border-b border-border">
+          <tr>
+            <th className="text-left px-4 py-3 font-semibold text-fg">Topic</th>
+            <th className="text-left px-4 py-3 font-semibold text-fg hidden sm:table-cell">Subject</th>
+            <th className="text-left px-4 py-3 font-semibold text-fg">Score</th>
+            <th className="text-left px-4 py-3 font-semibold text-fg hidden sm:table-cell">Date</th>
+            <th className="px-4 py-3" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border bg-white">
+          {attempts.map((a) => {
+            const topic = a.worksheets?.topics;
+            const pct = Math.round((a.score / a.total) * 100);
+            return (
+              <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-fg leading-snug">
+                    {topic?.title ?? a.worksheets?.title ?? "Unknown topic"}
+                  </p>
+                  <p className="text-xs text-muted sm:hidden mt-0.5">{formatDate(a.created_at)}</p>
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <p className="text-muted">{topic?.subjects?.name ?? "—"}</p>
+                  <p className="text-xs text-muted">{topic?.subjects?.years?.display_name ?? ""}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${scoreBg(pct)}`}>
+                    {a.score}/{a.total} · {pct}%
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-muted hidden sm:table-cell">{formatDate(a.created_at)}</td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/progress/${a.id}`}
+                    className="text-sm font-semibold text-primary hover:underline whitespace-nowrap"
+                  >
+                    Review
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+type Tab = "summary" | "history";
+
+export function ProgressClient() {
+  const router = useRouter();
+  const [status, setStatus] = useState<"loading" | "ready">("loading");
+  const [attempts, setAttempts] = useState<AttemptRow[]>([]);
+  const [tab, setTab] = useState<Tab>("summary");
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/progress", { credentials: "include" });
+      if (res.status === 401) { router.replace("/login"); return; }
+      setAttempts(res.ok ? await res.json() : []);
+      setStatus("ready");
+    })();
+  }, [router]);
+
+  if (status === "loading") return <Skeleton />;
+
+  const total = attempts.length;
+  const avgPct = total > 0
+    ? Math.round(attempts.reduce((s, a) => s + (a.score / a.total) * 100, 0) / total)
+    : 0;
+  const streak = calcStreak(attempts);
+
+  return (
+    <PageContainer as="main">
+      <h1 className="text-3xl font-bold text-fg mb-1">Your Progress</h1>
+      <p className="text-muted mb-8">
+        {total === 0 ? "Start a worksheet to see your progress here." : "Every attempt moves you forward — keep it up!"}
+      </p>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-8">
+        <StatCard value={total} label={total === 1 ? "Worksheet done" : "Worksheets done"} />
+        <StatCard value={total > 0 ? `${avgPct}%` : "—"} label="Average score" />
+        <StatCard value={streak > 0 ? streak : "—"} label={streak === 1 ? "Day streak" : "Day streak"} />
+      </div>
+
+      {/* Tab toggle */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mb-6">
+        {(["summary", "history"] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors capitalize ${
+              tab === t ? "bg-white text-fg shadow-sm" : "text-muted hover:text-fg"
+            }`}
+          >
+            {t === "summary" ? "By Topic" : "All Attempts"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "summary" ? (
+        <SummaryView attempts={attempts} />
+      ) : (
+        <HistoryView attempts={attempts} />
+      )}
     </PageContainer>
   );
 }
