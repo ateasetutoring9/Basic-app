@@ -320,6 +320,28 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 
 ---
 
+## Landing Page
+
+The public landing page (`/`) is a fully static server-rendered page. `app/(public)/page.tsx` is a thin composition file — all content lives in section components under `app/(public)/_components/`. The underscore prefix prevents Next.js from treating files in that directory as routes.
+
+**Sections (in render order):**
+`Header` → `FoundingBanner` → `Hero` → `WhatsFree` → `HowItWorks` → `CurriculumCoverage` → `SampleQuestion` → `MeetTutors` → `Pricing` → `Testimonials` → `TrustStrip` → `FounderNote` → `FAQ` → `FinalCTA` → `Footer`
+
+**Pending real content — each marked `// TODO` in the component file:**
+- `FounderNote` — placeholder initials "MK"; replace with real founder photo and name once available
+- `MeetTutors` — 3 placeholder cards; replace with real tutor profiles once tutors are onboarded
+- `Testimonials` — 3 placeholder quotes; replace with real student feedback once collected
+- `FoundingBanner`, `FinalCTA` — spot count hardcoded "247"; wire to a live DB count when founding cohort tracking is implemented
+
+**Conventions for this page:**
+- All 15 components are React Server Components — no `"use client"`, no client JS
+- Inline SVG only — lucide-react is not in package.json
+- Accent sections: `bg-indigo-50 border-y border-indigo-100`
+- All CTAs use `<Link href="/signup">` or `<Link href="/login">` — no router needed
+- FAQ uses native `<details>`/`<summary>` — no JS, fully accessible, Tailwind `group-open:` for the chevron animation
+
+---
+
 ## What NOT To Do
 
 - **Don't expose `id` to API clients.** All external references use `sync_id`.

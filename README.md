@@ -63,6 +63,41 @@ app/
 
 ---
 
+## Landing Page (`/`)
+
+The public landing page lives at `app/(public)/page.tsx` — a thin server-component composition file. Section components are co-located in `app/(public)/_components/` (underscore prefix keeps them out of Next.js routing).
+
+| Component | Purpose |
+|---|---|
+| `Header` | Logo + Log in / Sign up free nav links |
+| `FoundingBanner` | Indigo accent strip — hardcoded "247 founding spots" |
+| `Hero` | Eyebrow, h1, primary CTA → `/signup`, secondary → `/browse` |
+| `WhatsFree` | 4 feature tiles with inline SVG icons |
+| `HowItWorks` | 4 numbered steps |
+| `CurriculumCoverage` | AU exam board pill badges (VCE, HSC, QCE, ATAR, SACE, etc.) |
+| `SampleQuestion` | Year 12 Maths Methods differentiation worked example |
+| `MeetTutors` | 3 placeholder tutor cards with WWCC badge |
+| `Pricing` | 3-column comparison: private tutoring / At Ease / online platforms |
+| `Testimonials` | 3 placeholder student/parent quote cards |
+| `TrustStrip` | Indigo accent strip — 4 trust signals |
+| `FounderNote` | Two-column founder's note with "MK" placeholder avatar |
+| `FAQ` | 6 native `<details>`/`<summary>` accordions |
+| `FinalCTA` | Indigo accent, CTA → `/signup`, login link |
+| `Footer` | Logo, nav links, copyright |
+
+**Pending real content (marked `// TODO` in each file):**
+- Founder photo and name — currently "MK" initials placeholder in `FounderNote`
+- Tutor profiles — 3 placeholder cards in `MeetTutors` need real names, subjects, bios
+- Student testimonials — 3 placeholder quotes in `Testimonials` need real feedback
+- Founding spot count — hardcoded "247" in `FoundingBanner` and `FinalCTA`; replace with a live DB count once cohort tracking is implemented
+
+**Conventions:**
+- All 15 components are React Server Components — no `"use client"`, no client-side JS
+- All icons are inline SVG — no external icon library
+- Accent sections use `bg-indigo-50 border-y border-indigo-100`
+
+---
+
 ## Content Hierarchy
 
 ```
