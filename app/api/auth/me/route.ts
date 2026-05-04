@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, signToken, COOKIE_NAME, COOKIE_OPTIONS } from "@/lib/auth/jwt";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (!token) {

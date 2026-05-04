@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 // Admin GET returns ALL topics (published + draft), unlike the public loader.
 export async function GET() {
   const supabase = createServerClient();

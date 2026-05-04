@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }

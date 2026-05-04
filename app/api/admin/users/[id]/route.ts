@@ -4,6 +4,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
 import type { Database } from "@/lib/supabase/database.types";
 
+export const runtime = 'edge';
+
 type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 async function getCallerId(req: NextRequest): Promise<number | null> {

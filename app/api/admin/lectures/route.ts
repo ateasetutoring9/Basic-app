@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 // POST body: { topicId: number; title: string; format: "text"|"video"|"slides"; content: object|string }
 // Upserts the lecture for the given topic.
 export async function POST(req: Request) {

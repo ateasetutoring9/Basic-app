@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
+export const runtime = 'edge';
+
 type WorksheetUpdate = Database["public"]["Tables"]["worksheets"]["Update"];
 
 // GET ?topicId=<number> — returns { worksheet, attemptCount }

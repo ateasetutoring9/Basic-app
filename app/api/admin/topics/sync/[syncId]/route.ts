@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 const TOPIC_SELECT = `
   id, sync_id, title, description, thumbnail_url, is_published,
   subjects (

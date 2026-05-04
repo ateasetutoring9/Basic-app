@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
 
+export const runtime = 'edge';
+
 export async function GET() {
   const supabase = createServerClient();
   const { data, error } = await supabase

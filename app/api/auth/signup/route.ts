@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
 import { signToken, COOKIE_NAME, COOKIE_OPTIONS } from "@/lib/auth/jwt";
 
+export const runtime = 'edge';
+
 export async function POST(req: Request) {
   let email: string, password: string;
 

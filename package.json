@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cf": "npx @cloudflare/next-on-pages",
+    "preview:cf": "npm run build:cf && wrangler pages dev",
     "start": "next start",
     "lint": "next lint",
     "content:check": "tsx --tsconfig tsconfig.json scripts/validate-content.ts"

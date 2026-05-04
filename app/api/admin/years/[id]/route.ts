@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
+export const runtime = 'edge';
+
 type YearUpdate = Database["public"]["Tables"]["years"]["Update"];
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
