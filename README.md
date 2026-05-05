@@ -8,7 +8,7 @@ Free, high-quality education for Year 7–12 students — lectures, worksheets, 
 
 | Layer | Detail |
 |---|---|
-| Framework | Next.js 14 (App Router), TypeScript |
+| Framework | Next.js 15 (App Router), TypeScript |
 | Styling | Tailwind CSS + CSS custom properties |
 | Database | Supabase (PostgreSQL) — no RLS, no Supabase Auth |
 | Auth | Custom JWT (jose, HS256) in an HTTP-only `session` cookie, 7-day expiry |
@@ -182,32 +182,39 @@ JWT_SECRET=
 
 ## Cloudflare Deployment
 
-**Build command:** `npm run build`
-**Deploy command:** `npx wrangler deploy`
+The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes use `export const runtime = 'edge'` so they run on Cloudflare's edge network.
+
+### Cloudflare Pages — Dashboard Settings
+
+In **Workers & Pages → your project → Settings → Build**:
+
+| Setting | Value |
+|---|---|
+| **Build command** | `npx @cloudflare/next-on-pages@1` |
+| **Build output directory** | `.vercel/output/static` |
+
+In **Settings → Functions**:
+
+| Setting | Value |
+|---|---|
+| **Compatibility flag** | `nodejs_compat` |
 
 ### Environment Variables
 
-Set these in the Cloudflare dashboard under **Workers & Pages → your project → Settings → Environment Variables**.
+Set these under **Settings → Environment Variables** for both **Production** and **Preview** environments:
 
 | Variable | Type | Where to get it |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Plain text | Supabase Dashboard → Project → Settings → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain text | Supabase Dashboard → Project → Settings → API → `anon` key |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase Dashboard → Project → Settings → API → `service_role` key |
-| `JWT_SECRET` | **Secret** | A random 48-character string you generate once and never change |
+| `NEXT_PUBLIC_SUPABASE_URL` | Plain text | Supabase → Project → Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain text | Supabase → Project → Settings → API → `anon` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase → Project → Settings → API → `service_role` key |
+| `JWT_SECRET` | **Secret** | A random 48-character string — generate once, never change |
 
-Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for **both** Production and Preview environments.
-Mark `SUPABASE_SERVICE_ROLE_KEY` and `JWT_SECRET` as **Encrypted** (secret).
-
-Also set this in the **Build** environment:
-
-| Variable | Value | Purpose |
-|---|---|---|
-| `NODE_VERSION` | `20` | Ensures the build uses Node.js 20 |
+`NEXT_PUBLIC_*` variables are inlined at build time, so they must be present when Cloudflare runs the build (set them as **Build** variables, not just runtime).
 
 ### Generating a JWT_SECRET
 
-```bash
+```powershell
 # Run once in PowerShell, copy the output
 -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 48 | % {[char]$_})
 ```
@@ -216,27 +223,27 @@ Or use any password manager's random string generator — 48+ characters, mixed 
 
 ### Wrangler config
 
-The `wrangler.jsonc` at the project root controls the deployment. Key settings:
+`wrangler.jsonc` at the project root is already configured:
 
 ```jsonc
 {
   "name": "basic-app",
   "compatibility_date": "2026-04-22",
-  "compatibility_flags": ["nodejs_compat"],  // required — enables Node.js APIs on Cloudflare edge
+  "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": ".vercel/output/static"
 }
 ```
 
-### Making changes and redeploying
+### Deploying changes
+
+Cloudflare Pages is connected to GitHub. Every push to `main` triggers an automatic build and deploy:
 
 ```bash
-# 1. Make your changes
-# 2. Build
-npm run build
-
-# 3. Deploy
-npx wrangler deploy
-
-# Or if deploying via GitHub: push to main — Cloudflare picks it up automatically
 git push origin main
 ```
+
+No manual deploy command is needed.
+
+### Note on local build tools
+
+`@cloudflare/next-on-pages` depends on `workerd`, which does not support Windows ARM64. The build runs in Cloudflare's Linux x64 environment — you do not need to run it locally. Use `npm run build` (standard Next.js build) for local verification.

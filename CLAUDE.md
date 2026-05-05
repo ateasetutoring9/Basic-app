@@ -342,6 +342,47 @@ The public landing page (`/`) is a fully static server-rendered page. `app/(publ
 
 ---
 
+## Cloudflare Deployment
+
+The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes (pages, layouts, API routes) must have `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.
+
+**Build tool:** `npx @cloudflare/next-on-pages@1`
+**Output dir:** `.vercel/output/static`
+**Wrangler config:** `wrangler.jsonc` at root with `pages_build_output_dir` and `nodejs_compat` flag.
+
+### Next.js 15 async APIs — required pattern
+
+The app is on Next.js 15. Two APIs became async and must be awaited:
+
+**`cookies()` from `next/headers`** — in every server component and API route that reads the session cookie:
+```ts
+// WRONG (Next.js 14):
+const token = cookies().get(COOKIE_NAME)?.value;
+
+// CORRECT (Next.js 15):
+const token = (await cookies()).get(COOKIE_NAME)?.value;
+```
+
+**`params` in dynamic routes** — server pages and API route handlers now receive `params` as a Promise:
+```ts
+// WRONG (Next.js 14):
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const id = parseInt(params.id, 10);
+
+// CORRECT (Next.js 15):
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+```
+
+**Exception:** client components using the `useParams()` hook are NOT affected — `useParams()` is synchronous and unchanged.
+
+### Edge runtime compatibility
+
+- `react-markdown` uses React hooks internally — any page/component that uses it must be `'use client'` when the page has `runtime = 'edge'`. (`components/lecture/MarkdownContent.tsx` already has `'use client'`.)
+- `workerd` (required by `@cloudflare/next-on-pages`) does not run on Windows ARM64. Use `npm run build` for local verification; the Cloudflare build environment (Linux x64) handles the full `@cloudflare/next-on-pages` build.
+
+---
+
 ## What NOT To Do
 
 - **Don't expose `id` to API clients.** All external references use `sync_id`.
