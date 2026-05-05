@@ -18,11 +18,12 @@ const FORMAT_LABELS: Record<string, string> = {
 };
 
 interface Props {
-  params: { syncId: string };
+  params: Promise<{ syncId: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const topic = await getTopicBySyncId(params.syncId);
+  const { syncId } = await params;
+  const topic = await getTopicBySyncId(syncId);
   return {
     title: topic?.title ?? "Lecture",
     description: topic?.description ?? undefined,
@@ -30,7 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function LearnPage({ params }: Props) {
-  const topic = await getTopicBySyncId(params.syncId);
+  const { syncId } = await params;
+  const topic = await getTopicBySyncId(syncId);
   if (!topic?.lecture) notFound();
 
   const { lecture, worksheet, title, description, subject } = topic;

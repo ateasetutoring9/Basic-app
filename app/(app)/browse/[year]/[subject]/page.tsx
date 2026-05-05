@@ -15,7 +15,7 @@ const FORMAT_BADGE: Record<string, { label: string; classes: string }> = {
 };
 
 interface Props {
-  params: { year: string; subject: string };
+  params: Promise<{ year: string; subject: string }>;
 }
 
 interface TopicRow {
@@ -70,7 +70,8 @@ async function getSubjectWithTopics(yearName: string, subjectSyncId: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const result = await getSubjectWithTopics(params.year, params.subject);
+  const { year, subject: subjectSyncId } = await params;
+  const result = await getSubjectWithTopics(year, subjectSyncId);
   if (!result) return { title: "Topics" };
   const { subject } = result;
   return {
@@ -80,14 +81,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function YearSubjectPage({ params }: Props) {
-  const result = await getSubjectWithTopics(params.year, params.subject);
+  const { year, subject: subjectSyncId } = await params;
+  const result = await getSubjectWithTopics(year, subjectSyncId);
   if (!result) notFound();
 
   const { subject, topics } = result;
 
   return (
     <PageContainer as="main">
-      <Link href={`/browse/${params.year}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors mb-6">
+      <Link href={`/browse/${year}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg transition-colors mb-6">
         ← {subject.year.displayName}
       </Link>
 

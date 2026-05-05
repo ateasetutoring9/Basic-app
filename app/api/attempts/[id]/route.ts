@@ -7,15 +7,16 @@ export const runtime = 'edge';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
 
   const session = await verifyToken(token);
   if (!session) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 
-  const attemptId = parseInt(params.id, 10);
+  const { id } = await params;
+  const attemptId = parseInt(id, 10);
   if (isNaN(attemptId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const supabase = createServerClient();

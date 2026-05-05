@@ -6,7 +6,7 @@ import { createServerClient } from "@/lib/supabase/server";
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
 
   const session = await verifyToken(token);

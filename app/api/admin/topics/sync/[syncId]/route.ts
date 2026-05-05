@@ -19,14 +19,15 @@ const TOPIC_SELECT = `
 
 export async function GET(
   _req: Request,
-  { params }: { params: { syncId: string } }
+  { params }: { params: Promise<{ syncId: string }> }
 ) {
+  const { syncId } = await params;
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("topics")
     .select(TOPIC_SELECT)
     .is("deleted_at", null)
-    .eq("sync_id", params.syncId)
+    .eq("sync_id", syncId)
     .single();
 
   if (error || !data) {

@@ -16,13 +16,14 @@ const SUBJECT_ACCENTS: Record<string, string> = {
 };
 
 interface Props {
-  params: { year: string };
+  params: Promise<{ year: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { year } = await params;
   const subjects = await getActiveSubjects();
-  const year = subjects.find((s) => s.year.name === params.year)?.year;
-  const display = year?.displayName ?? params.year;
+  const yearObj = subjects.find((s) => s.year.name === year)?.year;
+  const display = yearObj?.displayName ?? year;
   return {
     title: display,
     description: `Browse ${display} subjects — free lectures and worksheets on At Ease Learning.`,
@@ -30,9 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function YearPage({ params }: Props) {
+  const { year } = await params;
   const allSubjects = await getActiveSubjects();
   const subjectsForYear = allSubjects
-    .filter((s) => s.year.name === params.year)
+    .filter((s) => s.year.name === year)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   if (subjectsForYear.length === 0) notFound();
@@ -55,7 +57,7 @@ export default async function YearPage({ params }: Props) {
           return (
             <li key={subject.syncId}>
               <Link
-                href={`/browse/${params.year}/${subject.syncId}`}
+                href={`/browse/${year}/${subject.syncId}`}
                 className="group flex flex-col h-full rounded-xl border border-border bg-white shadow-sm hover:shadow-md hover:border-indigo-300 transition-all p-6 min-h-[100px]"
               >
                 <div className="flex items-start gap-3 mb-3">

@@ -15,7 +15,7 @@ const NAV = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const token = cookies().get(COOKIE_NAME)?.value ?? null;
+  const token = (await cookies()).get(COOKIE_NAME)?.value ?? null;
   const session = token ? await verifyToken(token) : null;
 
   if (!session) redirect("/login");

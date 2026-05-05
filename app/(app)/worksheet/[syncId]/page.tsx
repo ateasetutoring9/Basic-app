@@ -10,11 +10,12 @@ export const runtime = 'edge';
 export const dynamic = "force-dynamic";
 
 interface Props {
-  params: { syncId: string };
+  params: Promise<{ syncId: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const topic = await getTopicBySyncId(params.syncId);
+  const { syncId } = await params;
+  const topic = await getTopicBySyncId(syncId);
   return {
     title: topic ? `${topic.title} — Worksheet` : "Worksheet",
     description: topic
@@ -24,7 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function WorksheetPage({ params }: Props) {
-  const topic = await getTopicBySyncId(params.syncId);
+  const { syncId } = await params;
+  const topic = await getTopicBySyncId(syncId);
   if (!topic?.worksheet) notFound();
 
   const { worksheet, title, subject } = topic;

@@ -6,8 +6,9 @@ export const runtime = 'edge';
 
 type TopicUpdate = Database["public"]["Tables"]["topics"]["Update"];
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await params;
+  const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const body = await req.json();
@@ -29,8 +30,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(data);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await params;
+  const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const supabase = createServerClient();

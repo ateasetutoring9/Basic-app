@@ -6,8 +6,9 @@ export const runtime = 'edge';
 
 type SubjectUpdate = Database["public"]["Tables"]["subjects"]["Update"];
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await params;
+  const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const body = await req.json();
