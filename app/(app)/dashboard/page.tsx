@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/ui/PageContainer";
 
+export const runtime = 'edge';
+
 export const metadata: Metadata = {
   title: "Home",
 };

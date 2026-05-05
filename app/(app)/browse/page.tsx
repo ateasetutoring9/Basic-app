@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getActiveYears, getActiveSubjects } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 
+export const runtime = 'edge';
+
 export const metadata: Metadata = {
   title: "Browse",
   description: "Choose a year level to start learning — free lectures and worksheets.",

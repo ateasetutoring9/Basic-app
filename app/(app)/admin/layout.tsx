@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
 
+export const runtime = 'edge';
+
 const NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/years", label: "Years" },

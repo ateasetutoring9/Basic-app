@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getActiveSubjects } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 
+export const runtime = 'edge';
+
 export const dynamic = "force-dynamic";
 
 const SUBJECT_ACCENTS: Record<string, string> = {

@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { EditWorksheetClient } from "./EditWorksheetClient";
 
+export const runtime = 'edge';
+
 export const metadata = { title: "Edit Worksheet" };
 
 export default function EditWorksheetPage() {

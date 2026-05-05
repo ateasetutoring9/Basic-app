@@ -7,6 +7,8 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { WorksheetEditorClient } from "@/components/admin/WorksheetEditorClient";
 import type { Worksheet, Question } from "@/lib/content/types";
 
+export const runtime = 'edge';
+
 interface TopicDetail {
   id: number;
   syncId: string;

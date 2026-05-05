@@ -8,6 +8,8 @@ import { gradeWorksheet } from "@/lib/grading";
 import type { Question } from "@/lib/content/types";
 import type { GradingResult } from "@/lib/grading";
 
+export const runtime = 'edge';
+
 interface AttemptDetail {
   id: number;
   score: number;

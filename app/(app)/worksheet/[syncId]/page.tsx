@@ -5,6 +5,8 @@ import { getTopicBySyncId } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { WorksheetClient } from "@/components/WorksheetClient";
 
+export const runtime = 'edge';
+
 export const dynamic = "force-dynamic";
 
 interface Props {

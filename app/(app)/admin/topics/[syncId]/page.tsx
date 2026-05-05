@@ -9,6 +9,8 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
+export const runtime = 'edge';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TopicDetail {

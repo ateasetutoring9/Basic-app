@@ -7,6 +7,8 @@ import { PageContainer } from "@/components/ui/PageContainer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
+export const runtime = 'edge';
+
 interface Year { id: number; display_name: string; }
 interface Subject { id: number; name: string; year_id: number; years: Year | null; }
 interface Topic {

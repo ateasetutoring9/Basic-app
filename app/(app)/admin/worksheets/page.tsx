@@ -3,6 +3,8 @@ import { getAllTopics } from "@/lib/content/loader";
 import { PageContainer } from "@/components/ui/PageContainer";
 import type { Topic } from "@/lib/content/types";
 
+export const runtime = 'edge';
+
 export default async function AdminWorksheetsPage() {
   const topics = await getAllTopics();
 

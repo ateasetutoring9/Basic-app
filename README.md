@@ -177,3 +177,66 @@ JWT_SECRET=
 ```
 
 `JWT_SECRET` falls back to a hardcoded dev string if unset — **must be set in production**.
+
+---
+
+## Cloudflare Deployment
+
+**Build command:** `npm run build`
+**Deploy command:** `npx wrangler deploy`
+
+### Environment Variables
+
+Set these in the Cloudflare dashboard under **Workers & Pages → your project → Settings → Environment Variables**.
+
+| Variable | Type | Where to get it |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Plain text | Supabase Dashboard → Project → Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain text | Supabase Dashboard → Project → Settings → API → `anon` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase Dashboard → Project → Settings → API → `service_role` key |
+| `JWT_SECRET` | **Secret** | A random 48-character string you generate once and never change |
+
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for **both** Production and Preview environments.
+Mark `SUPABASE_SERVICE_ROLE_KEY` and `JWT_SECRET` as **Encrypted** (secret).
+
+Also set this in the **Build** environment:
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `NODE_VERSION` | `20` | Ensures the build uses Node.js 20 |
+
+### Generating a JWT_SECRET
+
+```bash
+# Run once in PowerShell, copy the output
+-join ((65..90) + (97..122) + (48..57) | Get-Random -Count 48 | % {[char]$_})
+```
+
+Or use any password manager's random string generator — 48+ characters, mixed case and numbers.
+
+### Wrangler config
+
+The `wrangler.jsonc` at the project root controls the deployment. Key settings:
+
+```jsonc
+{
+  "name": "basic-app",
+  "compatibility_date": "2026-04-22",
+  "compatibility_flags": ["nodejs_compat"],  // required — enables Node.js APIs on Cloudflare edge
+  "pages_build_output_dir": ".vercel/output/static"
+}
+```
+
+### Making changes and redeploying
+
+```bash
+# 1. Make your changes
+# 2. Build
+npm run build
+
+# 3. Deploy
+npx wrangler deploy
+
+# Or if deploying via GitHub: push to main — Cloudflare picks it up automatically
+git push origin main
+```

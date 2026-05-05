@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/ui/PageContainer";
 
+export const runtime = 'edge';
+
 export const dynamic = "force-dynamic";
 
 const FORMAT_BADGE: Record<string, { label: string; classes: string }> = {

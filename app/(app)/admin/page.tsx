@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/ui/PageContainer";
 
+export const runtime = 'edge';
+
 async function getCounts() {
   const supabase = createServerClient();
   const [years, subjects, topics, worksheets, users, attempts] = await Promise.all([

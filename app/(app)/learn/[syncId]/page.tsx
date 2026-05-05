@@ -7,6 +7,8 @@ import MarkdownContent from "@/components/lecture/MarkdownContent";
 import YouTubeFacade from "@/components/lecture/YouTubeFacade";
 import SlidesViewer from "@/components/lecture/SlidesViewer";
 
+export const runtime = 'edge';
+
 export const dynamic = "force-dynamic";
 
 const FORMAT_LABELS: Record<string, string> = {
