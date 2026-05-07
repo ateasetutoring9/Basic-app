@@ -3,21 +3,52 @@
 @tailwind utilities;
 
 :root {
-  /* Surfaces */
-  --bg:            #f9f9f8;
-  --fg:            #1a1a1a;
-  --muted:         #6b7280;
+  /* ── Design tokens ─────────────────────────────────────────── */
 
-  /* Brand */
-  --primary:       #4f46e5;
-  --primary-hover: #4338ca;
+  /* Backgrounds */
+  --bg-page:   #FAFAF7;
+  --bg-panel:  #F1EFE8;
+  --bg-card:   #FFFFFF;
 
-  /* Feedback */
-  --success:       #16a34a;
-  --error:         #dc2626;
+  /* Text */
+  --text-primary:   #1A1A1A;
+  --text-secondary: #595956;
+  --text-tertiary:  #8B8B85;
 
-  /* Structural */
-  --border:        #e2e2df;
+  /* Accent — eucalypt green */
+  --accent:         #2D5F4C;
+  --accent-hover:   #244D3D;
+  --accent-soft:    #E8EFEB;
+  --accent-text-on: #FAFAF7;
+
+  /* Semantic */
+  --success:      #4A7C2E;
+  --success-soft: #E8EFE0;
+  --error:        #B5402F;
+  --error-soft:   #F5E3DE;
+
+  /* Borders */
+  --border:        #E5E3DD;
+  --border-strong: #D4D1C7;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Shadow — hover states only */
+  --shadow-hover: 0 1px 3px rgba(26, 26, 26, 0.06), 0 1px 2px rgba(26, 26, 26, 0.04);
+
+  /* Fonts (next/font overrides these on <html>; these are fallbacks) */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ── Legacy aliases — keep existing app pages working ───────── */
+  --bg:            var(--bg-page);
+  --fg:            var(--text-primary);
+  --muted:         var(--text-secondary);
+  --primary:       var(--accent);
+  --primary-hover: var(--accent-hover);
 }
 
 @layer base {
@@ -26,19 +57,14 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  @media (min-width: 768px) {
-    html {
-      font-size: 18px;
-    }
-  }
-
   body {
-    background-color: var(--bg);
-    color: var(--fg);
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 16px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   *,
@@ -47,9 +73,62 @@
     box-sizing: border-box;
   }
 
-  /* Visible focus ring for keyboard users */
   :focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-hero {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 5vw, 3.5rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  .text-page-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 500;
+    line-height: 1.15;
+  }
+
+  .text-section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.375rem, 2.5vw, 1.75rem);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .text-subsection-title {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .text-body {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .text-lecture {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .text-small {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .text-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
   }
 }

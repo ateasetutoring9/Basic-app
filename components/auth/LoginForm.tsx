@@ -33,7 +33,8 @@ export function LoginForm() {
 
   return (
     <>
-      <h1 className="text-xl font-bold text-fg mb-6">Welcome back</h1>
+      <h1 className="text-page-title text-fg mb-2">Welcome back</h1>
+      <p className="text-small text-muted mb-7">Log in to continue your learning.</p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         <Input
@@ -57,7 +58,7 @@ export function LoginForm() {
         />
 
         {error && (
-          <p role="alert" className="text-sm text-error bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <p role="alert" className="text-small text-error bg-error-soft border border-error rounded-md px-4 py-3">
             {error}
           </p>
         )}
@@ -67,10 +68,10 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted">
+      <p className="mt-6 text-center text-small text-muted">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="text-primary font-semibold hover:underline">
-          Sign up
+        <Link href="/signup" className="text-accent font-medium hover:underline">
+          Sign up free
         </Link>
       </p>
     </>

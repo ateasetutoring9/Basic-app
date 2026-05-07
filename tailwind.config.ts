@@ -9,14 +9,55 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg:            "var(--bg)",
-        fg:            "var(--fg)",
-        muted:         "var(--muted)",
-        primary:       "var(--primary)",
+        // ── Design system tokens ──────────────────────────────────
+        page:  "var(--bg-page)",
+        panel: "var(--bg-panel)",
+        card:  "var(--bg-card)",
+
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover:   "var(--accent-hover)",
+          soft:    "var(--accent-soft)",
+        },
+
+        "text-secondary": "var(--text-secondary)",
+        "text-tertiary":  "var(--text-tertiary)",
+
+        success: {
+          DEFAULT: "var(--success)",
+          soft:    "var(--success-soft)",
+        },
+        error: {
+          DEFAULT: "var(--error)",
+          soft:    "var(--error-soft)",
+        },
+        border: {
+          DEFAULT: "var(--border)",
+          strong:  "var(--border-strong)",
+        },
+
+        // ── Legacy aliases — keep existing app pages working ──────
+        bg:              "var(--bg)",
+        fg:              "var(--fg)",
+        muted:           "var(--muted)",
+        primary:         "var(--primary)",
         "primary-hover": "var(--primary-hover)",
-        success:       "var(--success)",
-        error:         "var(--error)",
-        border:        "var(--border)",
+      },
+      fontFamily: {
+        display: ["var(--font-display)"],
+        sans:    ["var(--font-body)"],
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+      },
+      maxWidth: {
+        page:    "1100px",
+        reading: "720px",
+      },
+      boxShadow: {
+        hover: "var(--shadow-hover)",
       },
     },
   },

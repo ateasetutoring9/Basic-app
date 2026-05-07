@@ -14,10 +14,7 @@ export function Input({ label, error, helper, id, className, ...rest }: InputPro
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={inputId}
-        className="text-sm font-semibold text-fg"
-      >
+      <label htmlFor={inputId} className="text-small font-medium text-fg">
         {label}
       </label>
 
@@ -27,25 +24,25 @@ export function Input({ label, error, helper, id, className, ...rest }: InputPro
         aria-describedby={error ? errorId : helper ? helperId : undefined}
         aria-invalid={error ? "true" : undefined}
         className={clsx(
-          "w-full rounded-lg border px-4 py-2.5 text-base text-fg",
-          "placeholder:text-muted bg-white",
+          "w-full rounded-md border px-3.5 py-2.5 text-base text-fg",
+          "placeholder:text-muted bg-card",
           "transition-colors duration-150",
           "min-h-[44px]",
           error
             ? "border-error focus:outline-none focus:ring-2 focus:ring-error/40"
-            : "border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary",
+            : "border-border-strong focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent",
           className
         )}
       />
 
       {error && (
-        <p id={errorId} role="alert" className="text-sm text-error">
+        <p id={errorId} role="alert" className="text-small text-error">
           {error}
         </p>
       )}
 
       {!error && helper && (
-        <p id={helperId} className="text-sm text-muted">
+        <p id={helperId} className="text-small text-muted">
           {helper}
         </p>
       )}

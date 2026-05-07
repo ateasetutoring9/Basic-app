@@ -12,11 +12,11 @@ const boards = [
 
 export function CurriculumCoverage() {
   return (
-    <section className="py-16 md:py-24 px-4 bg-white border-y border-border">
-      <div className="max-w-5xl mx-auto">
+    <section className="py-16 md:py-24 px-4 bg-card border-y border-border">
+      <div className="max-w-page mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-fg mb-4">Built for Australian students</h2>
-          <p className="text-lg text-muted max-w-xl mx-auto">
+          <h2 className="text-section-title text-fg mb-4">Built for Australian students</h2>
+          <p className="text-body text-muted max-w-xl mx-auto">
             Content is aligned to the Australian Curriculum and mapped to every state and territory&apos;s senior secondary framework.
           </p>
         </div>
@@ -24,7 +24,7 @@ export function CurriculumCoverage() {
           {boards.map((board) => (
             <span
               key={board}
-              className="inline-flex items-center px-4 py-2 rounded-full bg-indigo-50 text-indigo-800 text-sm font-medium border border-indigo-100"
+              className="inline-flex items-center px-3 py-1 rounded-sm bg-panel text-muted text-small font-medium border border-border"
             >
               {board}
             </span>

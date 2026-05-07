@@ -23,20 +23,22 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="py-16 md:py-24 px-4">
-      <div className="max-w-5xl mx-auto">
+    <section className="py-16 md:py-24 px-4 bg-panel border-y border-border">
+      <div className="max-w-page mx-auto">
         <div className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-bold text-fg mb-4">How it works</h2>
-          <p className="text-lg text-muted max-w-lg mx-auto">
+          <h2 className="text-section-title text-fg mb-4">How it works</h2>
+          <p className="text-body text-muted max-w-lg mx-auto">
             From sign-up to first worksheet in under two minutes.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {steps.map((s) => (
             <div key={s.number} className="flex flex-col">
-              <span className="text-5xl font-bold text-primary/20 mb-4 leading-none">{s.number}</span>
-              <h3 className="font-semibold text-fg mb-2">{s.title}</h3>
-              <p className="text-sm text-muted leading-relaxed">{s.description}</p>
+              <span className="font-display text-5xl font-medium text-accent/20 mb-4 leading-none">
+                {s.number}
+              </span>
+              <h3 className="text-subsection-title text-fg mb-2">{s.title}</h3>
+              <p className="text-small text-muted leading-relaxed">{s.description}</p>
             </div>
           ))}
         </div>

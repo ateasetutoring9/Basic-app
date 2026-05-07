@@ -1,3 +1,5 @@
+import { ChevronDown } from "lucide-react";
+
 const faqs = [
   {
     question: "Is it really free?",
@@ -33,25 +35,22 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section className="py-16 md:py-24 px-4 bg-white border-y border-border">
-      <div className="max-w-3xl mx-auto">
+    <section className="py-16 md:py-24 px-4">
+      <div className="max-w-reading mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-fg mb-4">Frequently asked questions</h2>
+          <h2 className="text-section-title text-fg mb-4">Frequently asked questions</h2>
         </div>
         <div className="divide-y divide-border">
           {faqs.map((faq) => (
             <details key={faq.question} className="group py-5">
-              <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-fg">
+              <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-body font-semibold text-fg">
                 {faq.question}
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+                <ChevronDown
                   className="w-5 h-5 text-muted flex-shrink-0 transition-transform duration-200 group-open:rotate-180"
-                >
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
+                  aria-hidden="true"
+                />
               </summary>
-              <p className="mt-3 text-muted leading-relaxed">{faq.answer}</p>
+              <p className="mt-3 text-body text-muted leading-relaxed">{faq.answer}</p>
             </details>
           ))}
         </div>
