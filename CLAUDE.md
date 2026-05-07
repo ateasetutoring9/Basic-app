@@ -318,6 +318,28 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - `GET /api/admin/topics` — returns **all** non-deleted topics (published + draft). The public loader `getAllTopics()` filters `is_published = true` — do not use it in admin contexts.
 - Browse pages (`/browse`, `/browse/[year]`, `/browse/[year]/[subject]`) are `force-dynamic` — server-rendered on every request so new DB content appears immediately without a redeploy.
 
+### Lecture publish flow (`/admin/topics/[syncId]`)
+
+The `LectureSection` component in `app/(app)/admin/topics/[syncId]/page.tsx` manages lecture state locally (never calls `onSaved()` after lecture operations, preventing form reset race conditions).
+
+**`POST /api/admin/lectures`** — upserts the lecture for a given `topicId`. Defaults `is_published = true` unless the caller explicitly passes `is_published: false`. Sets `published_at` on first publish only — never overwrites it. Returns `{ ok: true, id: number }` so the client can store the integer ID immediately after creation.
+
+**`PATCH /api/admin/lectures`** — publish-state toggle only. Body: `{ id: number; is_published: boolean }`. Never touches `title`, `format`, or `content`. Sets `published_at` when publishing for the first time; never clears it on unpublish.
+
+**Status pill** — shows Draft/Published + relative time (last saved / last updated / just now). Dot indicator: green for published, muted for draft.
+
+**Contextual buttons:**
+- Published state: "Save changes" (POST with `is_published: true`) + "Unpublish" (opens modal)
+- Draft state: "Save and publish" (POST with `is_published: true`) + "Save draft" (POST with `is_published: false`)
+
+**Auto-save** — fires every 30 seconds for drafts only (`isDirtyRef && !isPublishedRef`). Uses inline ref sync pattern (`titleRef.current = title` in render body) to avoid stale closures without extra `useEffect` calls.
+
+**Toast feedback** — shown after every save/publish/unpublish action. Publish toast includes a "View as student →" link to the topic's learn page.
+
+**Unpublish modal** — native `<dialog>` element; opened via `dialogRef.current?.showModal()` in `useEffect`. Requires explicit confirmation before unpublishing.
+
+**`published_at` lifecycle** — set once on first publish. Preserved across all subsequent saves, unpublish, and republish cycles. Never cleared by the API.
+
 ---
 
 ## Landing Page
@@ -335,10 +357,12 @@ The public landing page (`/`) is a fully static server-rendered page. `app/(publ
 
 **Conventions for this page:**
 - All 15 components are React Server Components — no `"use client"`, no client JS
-- Inline SVG only — lucide-react is not in package.json
-- Accent sections: `bg-indigo-50 border-y border-indigo-100`
+- Icons use `lucide-react` (installed) — no inline SVG
+- Accent sections: `bg-accent-soft border-y border-border`
 - All CTAs use `<Link href="/signup">` or `<Link href="/login">` — no router needed
 - FAQ uses native `<details>`/`<summary>` — no JS, fully accessible, Tailwind `group-open:` for the chevron animation
+
+**Design system:** Token reference is in `app/_design-system.md`. CSS custom properties are defined in `app/globals.css` under `:root`. Tailwind extends them via `tailwind.config.ts`. Key tokens: `--accent` (eucalypt green `#2D5F4C`), `--font-display` (Fraunces), `--font-body` (Inter). Type scale utilities (`.text-hero`, `.text-section-title`, etc.) are in `@layer utilities` using `clamp()`.
 
 ---
 

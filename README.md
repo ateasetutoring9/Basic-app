@@ -9,7 +9,8 @@ Free, high-quality education for Year 7–12 students — lectures, worksheets, 
 | Layer | Detail |
 |---|---|
 | Framework | Next.js 15 (App Router), TypeScript |
-| Styling | Tailwind CSS + CSS custom properties |
+| Styling | Tailwind CSS + CSS custom properties (design tokens in `app/_design-system.md`) |
+| Icons | lucide-react |
 | Database | Supabase (PostgreSQL) — no RLS, no Supabase Auth |
 | Auth | Custom JWT (jose, HS256) in an HTTP-only `session` cookie, 7-day expiry |
 | Passwords | bcryptjs, cost 12 |
@@ -72,17 +73,17 @@ The public landing page lives at `app/(public)/page.tsx` — a thin server-compo
 | `Header` | Logo + Log in / Sign up free nav links |
 | `FoundingBanner` | Indigo accent strip — hardcoded "247 founding spots" |
 | `Hero` | Eyebrow, h1, primary CTA → `/signup`, secondary → `/browse` |
-| `WhatsFree` | 4 feature tiles with inline SVG icons |
+| `WhatsFree` | 4 feature tiles with Lucide icons |
 | `HowItWorks` | 4 numbered steps |
 | `CurriculumCoverage` | AU exam board pill badges (VCE, HSC, QCE, ATAR, SACE, etc.) |
 | `SampleQuestion` | Year 12 Maths Methods differentiation worked example |
 | `MeetTutors` | 3 placeholder tutor cards with WWCC badge |
 | `Pricing` | 3-column comparison: private tutoring / At Ease / online platforms |
 | `Testimonials` | 3 placeholder student/parent quote cards |
-| `TrustStrip` | Indigo accent strip — 4 trust signals |
+| `TrustStrip` | Green accent strip (`bg-accent-soft`) — 4 trust signals with Lucide icons |
 | `FounderNote` | Two-column founder's note with "MK" placeholder avatar |
 | `FAQ` | 6 native `<details>`/`<summary>` accordions |
-| `FinalCTA` | Indigo accent, CTA → `/signup`, login link |
+| `FinalCTA` | Green accent (`bg-accent-soft`), CTA → `/signup`, login link |
 | `Footer` | Logo, nav links, copyright |
 
 **Pending real content (marked `// TODO` in each file):**
@@ -93,8 +94,9 @@ The public landing page lives at `app/(public)/page.tsx` — a thin server-compo
 
 **Conventions:**
 - All 15 components are React Server Components — no `"use client"`, no client-side JS
-- All icons are inline SVG — no external icon library
-- Accent sections use `bg-indigo-50 border-y border-indigo-100`
+- Icons use `lucide-react`
+- Accent sections use `bg-accent-soft border-y border-border` (eucalypt green token, not indigo)
+- Design tokens are documented in `app/_design-system.md`
 
 ---
 
@@ -306,6 +308,19 @@ Stored in `worksheets.questions` JSONB, validated in `lib/content/schemas.ts`:
 | `/admin/users` | CRUD user accounts, admin flag toggle |
 
 Admin API routes live under `/api/admin/` and use integer `id` for PATCH/DELETE, `sync_id` for GET-by-identity.
+
+### Lecture publish flow
+
+The topic detail page (`/admin/topics/[syncId]`) includes a full publish flow for lectures:
+
+- **Status pill** — shows Draft/Published + relative time (e.g. "Draft · last saved 2 min ago")
+- **Contextual buttons** — published state shows "Save changes" + "Unpublish"; draft state shows "Save and publish" + "Save draft"
+- **Toast feedback** — shown after every action; publish toast includes a "View as student →" link
+- **30-second auto-save** — fires for dirty drafts only; disabled while the lecture is published
+- **Unpublish modal** — native `<dialog>` requiring explicit confirmation before unpublishing
+
+`POST /api/admin/lectures` — upserts content, defaults to publishing, returns `{ ok: true, id }`.
+`PATCH /api/admin/lectures` — publish-state toggle only; never touches content.
 
 ---
 
