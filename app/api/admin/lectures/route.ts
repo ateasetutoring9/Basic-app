@@ -55,3 +55,24 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// PATCH body: { id: number; is_published: boolean }
+// Only flips the publish flag — never touches content.
+export async function PATCH(req: Request) {
+  const body = await req.json();
+  const { id, is_published } = body;
+
+  if (typeof id !== "number" || typeof is_published !== "boolean") {
+    return NextResponse.json({ error: "id (number) and is_published (boolean) are required" }, { status: 400 });
+  }
+
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from("lectures")
+    .update({ is_published })
+    .eq("id", id)
+    .is("deleted_at", null);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

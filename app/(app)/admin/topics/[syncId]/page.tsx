@@ -274,15 +274,9 @@ function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =>
     if (!topic.lecture) return;
     setToggling(true);
     await fetch("/api/admin/lectures", {
-      method: "POST",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        topicId: topic.id,
-        title: topic.lecture.title,
-        format: topic.lecture.format,
-        content: topic.lecture.content,
-        is_published: !topic.lecture.isPublished,
-      }),
+      body: JSON.stringify({ id: topic.lecture.id, is_published: !topic.lecture.isPublished }),
     });
     setToggling(false);
     await onSaved();
