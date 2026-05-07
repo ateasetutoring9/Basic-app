@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   // Use a constant-time comparison even when user is not found
   const hashToCompare = user?.password_hash ?? "$2b$12$invalidhashusedtopreventinenumerationattacks";
-  const valid = await bcrypt.compare(password, hashToCompare);
+  const valid = bcrypt.compareSync(password, hashToCompare);
 
   if (!user || !valid) {
     // Increment failed attempts if user exists

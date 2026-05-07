@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "An account with that email already exists" }, { status: 409 });
   }
 
-  const password_hash = await bcrypt.hash(password, 12);
+  const password_hash = bcrypt.hashSync(password, 12);
 
   const { data: user, error: insertError } = await supabase
     .from("users")

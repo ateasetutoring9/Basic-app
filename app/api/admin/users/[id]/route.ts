@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.password.length < 6) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
-    patch.password_hash = await bcrypt.hash(body.password, 12);
+    patch.password_hash = bcrypt.hashSync(body.password, 12);
   }
 
   if (Object.keys(patch).length === 0) {
