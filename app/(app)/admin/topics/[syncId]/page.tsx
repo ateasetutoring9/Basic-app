@@ -8,8 +8,20 @@ import remarkGfm from "remark-gfm";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Toast } from "@/components/ui/Toast";
 
 export const runtime = 'edge';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function relativeTime(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 5)   return "just now";
+  if (secs < 60)  return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)} min ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} hr ago`;
+  return `${Math.floor(secs / 86400)} day${Math.floor(secs / 86400) === 1 ? "" : "s"} ago`;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +39,8 @@ interface TopicDetail {
     title: string;
     content: Record<string, unknown>;
     isPublished: boolean;
+    publishedAt: string | null;
+    updatedAt: string;
   } | null;
   worksheet: {
     id: number;
@@ -36,6 +50,11 @@ interface TopicDetail {
     difficulty: number;
     isPublished: boolean;
   } | null;
+}
+
+interface ToastState {
+  msg: string;
+  link?: { href: string; label: string };
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -58,7 +77,7 @@ export default function TopicDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadTopic(); }, [syncId]);
 
-  async function togglePublish() {
+  async function toggleTopicPublish() {
     if (!topic) return;
     await fetch(`/api/admin/topics/${topic.id}`, {
       method: "PATCH",
@@ -96,11 +115,11 @@ export default function TopicDetailPage() {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={togglePublish}
+              onClick={toggleTopicPublish}
               className={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                 topic.isPublished
-                  ? "bg-green-100 text-green-700 hover:bg-green-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-success-soft text-success hover:bg-success-soft"
+                  : "bg-panel text-muted hover:bg-border"
               }`}
             >
               {topic.isPublished ? "Published" : "Draft"}
@@ -117,13 +136,8 @@ export default function TopicDetailPage() {
       </div>
 
       <div className="flex flex-col gap-8">
-        {/* Metadata section */}
         <MetadataSection topic={topic} onSaved={loadTopic} />
-
-        {/* Lecture section */}
-        <LectureSection topic={topic} onSaved={loadTopic} />
-
-        {/* Worksheet section */}
+        <LectureSection topic={topic} />
         <WorksheetSection topic={topic} router={router} />
       </div>
     </PageContainer>
@@ -167,10 +181,10 @@ function MetadataSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =
   }
 
   return (
-    <section className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
+    <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-panel transition-colors"
       >
         <span className="font-semibold text-fg">Metadata</span>
         <span className="text-muted text-sm">{open ? "▲ Collapse" : "▼ Edit"}</span>
@@ -190,7 +204,7 @@ function MetadataSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 rows={2}
-                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-fg resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full rounded-md border border-border-strong px-4 py-2.5 text-sm text-fg resize-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-card"
               />
             </div>
             <Input
@@ -201,7 +215,7 @@ function MetadataSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =
               helper="Optional preview image"
             />
           </div>
-          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-4 text-sm text-error">{error}</p>}
           <div className="flex gap-3 mt-5">
             <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save metadata"}</Button>
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
@@ -214,119 +228,283 @@ function MetadataSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =
 
 // ─── Lecture section ──────────────────────────────────────────────────────────
 
-function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () => void }) {
-  const existingMarkdown =
+function StatusPill({ isPublished, lastSavedAt }: { isPublished: boolean; lastSavedAt: Date | null }) {
+  const timeStr = lastSavedAt ? relativeTime(lastSavedAt) : null;
+  const suffix = isPublished
+    ? timeStr ? `last updated ${timeStr}` : "live"
+    : timeStr ? `last saved ${timeStr}` : "unsaved";
+
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <span
+        className={`block w-1.5 h-1.5 rounded-full flex-shrink-0 ${isPublished ? "bg-success" : "bg-[var(--text-tertiary)]"}`}
+        aria-hidden="true"
+      />
+      <span className={`text-[0.6875rem] font-medium tracking-[0.06em] uppercase ${isPublished ? "text-success" : "text-muted"}`}>
+        {isPublished ? "Published" : "Draft"} · {suffix}
+      </span>
+    </div>
+  );
+}
+
+function UnpublishModal({ onCancel, onConfirm, submitting }: {
+  onCancel: () => void;
+  onConfirm: () => void;
+  submitting: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.showModal();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onCancel}
+      className="rounded-md border border-border bg-card p-6 w-full max-w-sm shadow-lg backdrop:bg-black/40"
+    >
+      <h3 className="text-subsection-title text-fg mb-2">Unpublish lecture?</h3>
+      <p className="text-small text-muted mb-6 leading-relaxed">
+        This lecture is currently visible to students. Unpublish it?
+      </p>
+      <div className="flex gap-3 justify-end">
+        <Button variant="secondary" onClick={onCancel} disabled={submitting} size="sm">
+          Cancel
+        </Button>
+        <button
+          onClick={onConfirm}
+          disabled={submitting}
+          className="inline-flex items-center justify-center px-4 py-2 rounded-md text-small font-medium bg-error text-[var(--accent-text-on)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+        >
+          {submitting ? "Unpublishing…" : "Unpublish"}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
+function LectureSection({ topic }: { topic: TopicDetail }) {
+  const initMarkdown =
     topic.lecture?.format === "text"
       ? (topic.lecture.content.markdown as string) ?? ""
       : "";
 
-  const [title, setTitle] = useState(topic.lecture?.title ?? topic.title);
-  const [markdown, setMarkdown] = useState(existingMarkdown);
+  // ── Form state ───────────────────────────────────────────────────────────────
+  const [title, setTitle]     = useState(topic.lecture?.title ?? topic.title);
+  const [markdown, setMarkdown] = useState(initMarkdown);
   const [preview, setPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [toggling, setToggling] = useState(false);
-  const [error, setError] = useState("");
-  const isDirty = useRef(false);
 
+  // ── Operation state ──────────────────────────────────────────────────────────
+  const [saving, setSaving]   = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [errors, setErrors]   = useState<{ title?: string; content?: string }>({});
+
+  // ── Publish state (managed locally — no parent reload needed for lecture ops) ─
+  const [isPublished, setIsPublished] = useState(topic.lecture?.isPublished ?? false);
+  const [lectureId, setLectureId]     = useState<number | null>(topic.lecture?.id ?? null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(
+    topic.lecture?.updatedAt ? new Date(topic.lecture.updatedAt) : null
+  );
+
+  // ── Modal & toast ────────────────────────────────────────────────────────────
+  const [showModal, setShowModal] = useState(false);
+  const [toast, setToast]         = useState<ToastState | null>(null);
+
+  // ── Refs for auto-save interval (avoid stale closures) ───────────────────────
+  const titleRef       = useRef(title);
+  const markdownRef    = useRef(markdown);
+  const isDirtyRef     = useRef(false);
+  const isPublishedRef = useRef(isPublished);
+  const lectureIdRef   = useRef(lectureId);
+
+  // Keep refs in sync — update inline during render (valid React pattern for refs)
+  titleRef.current       = title;
+  markdownRef.current    = markdown;
+  isDirtyRef.current     = isDirty;
+  isPublishedRef.current = isPublished;
+  lectureIdRef.current   = lectureId;
+
+  // ── Sync form fields from prop when topic changes (e.g. metadata save reloads topic) ─
   useEffect(() => {
-    setTitle(topic.lecture?.title ?? topic.title);
-    setMarkdown(
-      topic.lecture?.format === "text"
-        ? (topic.lecture.content.markdown as string) ?? ""
-        : ""
-    );
+    if (!isDirtyRef.current) {
+      setTitle(topic.lecture?.title ?? topic.title);
+      setMarkdown(
+        topic.lecture?.format === "text"
+          ? (topic.lecture.content.markdown as string) ?? ""
+          : ""
+      );
+      if (topic.lecture?.updatedAt) setLastSavedAt(new Date(topic.lecture.updatedAt));
+    }
+    // Always sync publish state and ID from DB (safe — these aren't typed by the user)
+    setIsPublished(topic.lecture?.isPublished ?? false);
+    setLectureId(topic.lecture?.id ?? null);
   }, [topic]);
 
-  // Warn on browser tab close / refresh when unsaved changes exist
+  // ── Warn on tab close when dirty ─────────────────────────────────────────────
   useEffect(() => {
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (isDirty.current) { e.preventDefault(); }
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    const fn = (e: BeforeUnloadEvent) => { if (isDirtyRef.current) e.preventDefault(); };
+    window.addEventListener("beforeunload", fn);
+    return () => window.removeEventListener("beforeunload", fn);
   }, []);
 
-  function markDirty() { isDirty.current = true; setSaved(false); }
+  // ── Auto-save: every 30s, draft only, when dirty ─────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!isDirtyRef.current || isPublishedRef.current) return;
+      const res = await fetch("/api/admin/lectures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicId: topic.id,
+          title: titleRef.current || topic.title,
+          format: "text",
+          content: markdownRef.current,
+          is_published: false,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.id && !lectureIdRef.current) setLectureId(data.id);
+        isDirtyRef.current = false;
+        setIsDirty(false);
+        setLastSavedAt(new Date());
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic.id, topic.title]);
 
-  async function handleSave() {
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  function markDirty() { setIsDirty(true); }
+
+  function clearErrors() { setErrors({}); }
+
+  function validate(): boolean {
+    const errs: { title?: string; content?: string } = {};
+    if (!title.trim()) errs.title = "Title is required before publishing.";
+    if (!markdown.trim()) errs.content = "Content cannot be empty before publishing.";
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function callSave(publishState: boolean): Promise<{ ok: boolean; id?: number }> {
     setSaving(true);
-    setError("");
     const res = await fetch("/api/admin/lectures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         topicId: topic.id,
-        title: title || topic.title,
+        title: title.trim() || topic.title,
         format: "text",
         content: markdown,
+        is_published: publishState,
       }),
     });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error ?? "Failed"); setSaving(false); return; }
-    isDirty.current = false;
-    setSaved(true);
     setSaving(false);
-    await onSaved();
+    if (!res.ok) {
+      const data = await res.json();
+      setErrors({ content: data.error ?? "Failed to save." });
+      return { ok: false };
+    }
+    const data = await res.json();
+    setIsDirty(false);
+    setLastSavedAt(new Date());
+    return { ok: true, id: data.id };
   }
 
-  async function togglePublish() {
-    if (!topic.lecture) return;
-    setToggling(true);
-    await fetch("/api/admin/lectures", {
+  // ── Actions ───────────────────────────────────────────────────────────────────
+
+  async function handleSaveDraft() {
+    const result = await callSave(false);
+    if (!result.ok) return;
+    if (result.id) setLectureId(result.id);
+    setIsPublished(false);
+    setToast({ msg: "Draft saved. Students can't see this yet." });
+  }
+
+  async function handleSaveAndPublish() {
+    if (!validate()) return;
+    const result = await callSave(true);
+    if (!result.ok) return;
+    if (result.id) setLectureId(result.id);
+    setIsPublished(true);
+    setToast({
+      msg: "Published.",
+      link: { href: `/learn/${topic.syncId}`, label: "View as student →" },
+    });
+  }
+
+  async function handleSaveChanges() {
+    if (!validate()) return;
+    const result = await callSave(true);
+    if (!result.ok) return;
+    setIsPublished(true);
+    setToast({ msg: "Saved. Changes are live." });
+  }
+
+  async function handleUnpublish() {
+    setShowModal(false);
+    if (!lectureId) return;
+    setSaving(true);
+    const res = await fetch("/api/admin/lectures", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: topic.lecture.id, is_published: !topic.lecture.isPublished }),
+      body: JSON.stringify({ id: lectureId, is_published: false }),
     });
-    setToggling(false);
-    await onSaved();
+    setSaving(false);
+    if (res.ok) {
+      setIsPublished(false);
+      setLastSavedAt(new Date());
+      setToast({ msg: "Unpublished. Students can no longer see this." });
+    }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────────
+
   return (
-    <section className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
+    <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
           <h2 className="font-semibold text-fg">Lecture</h2>
           <p className="text-xs text-muted mt-0.5">Markdown text format</p>
         </div>
-        <div className="flex items-center gap-3">
-          {topic.lecture && (
-            <button
-              onClick={togglePublish}
-              disabled={toggling}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
-                topic.lecture.isPublished
-                  ? "bg-green-100 text-green-700 hover:bg-green-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {toggling ? "…" : topic.lecture.isPublished ? "Published" : "Draft"}
-            </button>
-          )}
-          <button
-            onClick={() => setPreview((p) => !p)}
-            className="text-sm text-muted hover:text-fg transition-colors"
-          >
-            {preview ? "Edit" : "Preview"}
-          </button>
-          <Button onClick={handleSave} disabled={saving} size="sm">
-            {saving ? "Saving…" : saved ? "Saved ✓" : "Save lecture"}
-          </Button>
-        </div>
+        <button
+          onClick={() => setPreview((p) => !p)}
+          className="text-sm text-muted hover:text-fg transition-colors"
+        >
+          {preview ? "Edit" : "Preview"}
+        </button>
       </div>
 
+      {/* Toast — full-width banner below header */}
+      {toast && (
+        <Toast message={toast.msg} link={toast.link} onDismiss={() => setToast(null)} />
+      )}
+
+      {/* Body */}
       <div className="p-6">
+        {/* Status pill */}
+        <div className="mb-5">
+          <StatusPill isPublished={isPublished} lastSavedAt={lastSavedAt} />
+        </div>
+
+        {/* Title field */}
         <div className="mb-4 max-w-lg">
           <Input
             label="Lecture title"
             value={title}
-            onChange={(e) => { setTitle(e.target.value); markDirty(); }}
+            onChange={(e) => { setTitle(e.target.value); markDirty(); clearErrors(); }}
             placeholder={topic.title}
+            error={errors.title}
           />
         </div>
 
+        {/* Editor / preview */}
         {preview ? (
-          <div className="prose prose-sm max-w-none min-h-[300px] p-4 rounded-lg bg-gray-50 border border-border">
+          <div className="prose prose-sm max-w-none min-h-[300px] p-4 rounded-md bg-panel border border-border">
             {markdown ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
             ) : (
@@ -336,17 +514,57 @@ function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =>
         ) : (
           <textarea
             value={markdown}
-            onChange={(e) => { setMarkdown(e.target.value); markDirty(); }}
+            onChange={(e) => { setMarkdown(e.target.value); markDirty(); clearErrors(); }}
             rows={20}
-            className="w-full rounded-lg border border-border px-4 py-3 text-sm font-mono text-fg resize-y focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary min-h-[300px]"
+            className="w-full rounded-md border border-border-strong px-4 py-3 text-sm font-mono text-fg resize-y focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-card min-h-[300px]"
             placeholder={"# Introduction\n\nWrite your lecture content here using Markdown…\n\n## Section\n\nMore content…"}
             spellCheck={false}
           />
         )}
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <p className="text-xs text-muted mt-2">Supports GitHub Flavoured Markdown — headings, bold, italic, lists, tables, code blocks.</p>
+        {errors.content && (
+          <p className="mt-1 text-small text-error">{errors.content}</p>
+        )}
+
+        <p className="text-xs text-muted mt-2">
+          Supports GitHub Flavoured Markdown — headings, bold, italic, lists, tables, code blocks.
+          {!isPublished && isDirty && (
+            <span className="ml-1 text-[var(--text-tertiary)]">Auto-saves every 30 s.</span>
+          )}
+        </p>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-3 mt-5">
+          {isPublished ? (
+            <>
+              <Button onClick={handleSaveChanges} disabled={saving}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+              <Button variant="secondary" onClick={() => setShowModal(true)} disabled={saving}>
+                Unpublish
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handleSaveAndPublish} disabled={saving}>
+                {saving ? "Saving…" : "Save and publish"}
+              </Button>
+              <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
+                {saving ? "Saving…" : "Save draft"}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Unpublish confirmation modal */}
+      {showModal && (
+        <UnpublishModal
+          onCancel={() => setShowModal(false)}
+          onConfirm={handleUnpublish}
+          submitting={saving}
+        />
+      )}
     </section>
   );
 }
@@ -363,7 +581,7 @@ function WorksheetSection({
   const ws = topic.worksheet;
 
   return (
-    <section className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
+    <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
           <h2 className="font-semibold text-fg">Worksheet</h2>
@@ -390,7 +608,7 @@ function WorksheetSection({
               <p className="text-sm text-muted mt-0.5">
                 {ws.questions.length} question{ws.questions.length !== 1 ? "s" : ""}
                 {" · "}
-                <span className={ws.isPublished ? "text-green-600" : "text-gray-500"}>
+                <span className={ws.isPublished ? "text-success" : "text-muted"}>
                   {ws.isPublished ? "Published" : "Draft"}
                 </span>
               </p>

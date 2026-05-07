@@ -10,7 +10,7 @@ const TOPIC_SELECT = `
     years ( id, sync_id, name, display_name )
   ),
   lectures (
-    id, format, title, content, is_published, deleted_at
+    id, format, title, content, is_published, published_at, updated_at, deleted_at
   ),
   worksheets (
     id, sync_id, title, questions, difficulty, is_published, deleted_at
@@ -49,6 +49,8 @@ export async function GET(
           title: lecRow.title,
           content: lecRow.content,
           isPublished: lecRow.is_published,
+          publishedAt: lecRow.published_at ?? null,
+          updatedAt: lecRow.updated_at,
         }
       : null;
 
