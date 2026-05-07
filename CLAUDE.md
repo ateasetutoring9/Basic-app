@@ -400,6 +400,39 @@ Single `force-dynamic` SSR route. All data fetching is in `app/(app)/learn/_lib/
 
 ---
 
+## Worksheet (`/worksheet/[syncId]`)
+
+Single `force-dynamic` SSR route. The `syncId` param is the **worksheet's own `sync_id`** — not the topic's. All data fetching is in `app/(app)/worksheet/_lib/loaders.ts`. The interactive client is in `app/(app)/worksheet/[syncId]/WorksheetClient.tsx`. Shared components live in `app/(app)/worksheet/_components/`.
+
+**Loaders:**
+
+| Loader | Notes |
+|---|---|
+| `getWorksheetBySyncId(syncId)` | Worksheet + questions + topic + subject + year. Null if not found, deleted, or not published. |
+| `getNextTopicInSubject(subjectId, topicId)` | First published topic in the same subject with `id > currentTopicId`, ordered by `id`. |
+
+**Three-phase state machine (in `WorksheetClient`):**
+
+1. **taking** — one question at a time; `ProgressBar`; Previous/Next; "Review →" on the last question moves to review.
+2. **review** — all Q+A pairs in `ReviewPanel`; amber warning for unanswered auto-graded questions; per-question Edit button jumps back to a specific question; "Confirm & Submit" grades and submits.
+3. **results** — score banner, per-question breakdown (`ResultsPanel`); Try Again / Back to Lecture / Next Topic (or Browse Topics if no next topic).
+
+**Grading (`_lib/grading.ts` — `gradeAnswers`):**
+- Essays: `correct = null`, excluded from `score` and `total`
+- `score` = correct auto-graded answers; `total` = count of auto-graded questions
+- These values are sent to `POST /api/attempts` (`worksheetId` is the integer `id`, not `sync_id`)
+
+**localStorage draft:**
+- Key: `worksheet:<syncId>:draft`
+- Restored from localStorage on mount; saved on every answer change during taking phase
+- Cleared on confirm & submit
+
+**`WorksheetData` type:** contains `id` (integer, for the `/api/attempts` POST), `syncId`, `title`, `questions`, `difficulty`, and nested `topic` (with `topic.id` for `getNextTopicInSubject` and `topic.syncId` for the Back to Lecture link). Never expose `id` in URLs.
+
+**Breadcrumb:** `Year · Subject · Topic · Worksheet` — all segments are links. Year links to `/browse/[yearName]`, Subject to `/browse/[yearName]/[subjectSlug]`, Topic to `/learn/[topicSyncId]`.
+
+---
+
 ## Browse (`/browse/**`)
 
 Three `force-dynamic` SSR routes. All data fetching is in `app/(app)/browse/_lib/loaders.ts`. Shared components live in `app/(app)/browse/_components/`.

@@ -223,6 +223,50 @@ app/(app)/learn/
 
 ---
 
+## Worksheet (`/worksheet/[syncId]`)
+
+Single dynamic route for completing a worksheet. The `syncId` in the URL is the **worksheet's own `sync_id`**, not the topic's.
+
+**File structure:**
+
+```
+app/(app)/worksheet/
+├── [syncId]/
+│   ├── page.tsx              Reads JWT, fetches worksheet + next topic, renders WorksheetClient
+│   └── WorksheetClient.tsx   "use client" — three-phase state machine
+├── _lib/
+│   ├── types.ts              WorksheetData, NextTopic
+│   ├── grading.ts            gradeAnswers() — essays excluded from score and total
+│   └── loaders.ts            getWorksheetBySyncId, getNextTopicInSubject
+└── _components/
+    ├── ProgressBar.tsx       Question X of Y progress bar with aria-progressbar
+    ├── QuestionInput.tsx     All 5 question type input UIs (mcq_single, mcq_multi, short_text, numeric, essay)
+    ├── ReviewPanel.tsx       Answer summary list with per-question Edit buttons
+    └── ResultsPanel.tsx      Score banner, per-question breakdown, retry/next-topic actions
+```
+
+**Three-phase flow:**
+
+1. **Taking** — one question at a time; Previous/Next navigation; "Review →" on last question
+2. **Review** — all Q+A pairs listed; amber warning for unanswered questions; "Edit" jumps back to any question; "Confirm & Submit" triggers grading
+3. **Results** — score banner with label; per-question breakdown; Try Again / Back to Lecture / Next Topic or Browse Topics
+
+**Grading:**
+- Essays are excluded from both `score` and `total`; shown as "submitted for review" in results
+- Score sent to `/api/attempts` is `autoGradedCorrect / autoGradedTotal`
+- `correct` is `null` for essays in the results breakdown
+
+**localStorage auto-save:**
+- Key: `worksheet:<syncId>:draft`
+- Draft restored on mount; saved on every answer change during taking phase
+- Draft cleared on confirm & submit
+
+**Breadcrumb:** `Year · Subject · Topic title · Worksheet` — all segments link into browse/learn hierarchy.
+
+**Next topic:** `getNextTopicInSubject` queries the next published topic in the same subject (by `id > currentTopicId`). Shown as a CTA in results. Falls back to "Browse Topics" if none found.
+
+---
+
 ## Database Conventions
 
 - **Dual-key:** every table has `id` (bigserial, internal FKs only) and `sync_id` (uuid, used in all URLs and API responses). Never expose `id` to clients.
