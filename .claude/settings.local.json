@@ -22,7 +22,10 @@
       "Bash(node -e \"console.log\\(require\\('./\\\\\"c:/Users/harsh/project/Basic app/package.json\\\\\"'\\).dependencies.next\\)\")",
       "Bash(xargs grep *)",
       "Bash(python3 -c ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
