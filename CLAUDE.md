@@ -368,6 +368,38 @@ The student dashboard at `app/(app)/dashboard/page.tsx` is a thin async server c
 
 ---
 
+## Browse (`/browse/**`)
+
+Three `force-dynamic` SSR routes. All data fetching is in `app/(app)/browse/_lib/loaders.ts`. Shared components live in `app/(app)/browse/_components/`.
+
+**Slug conventions:**
+- `[year]` = `years.name` (e.g. `year-12`)
+- `[subject]` = subject name slugified: lowercase + spaces → hyphens (e.g. `mathematical-methods`). No DB column — derived at query time by `toSubjectSlug()`. `getSubjectByYearAndSlug` fetches all active subjects for the year and finds the first whose slugified name matches. If two subjects in the same year slug to the same value (not expected), the first result wins.
+
+**Loaders (`_lib/loaders.ts`):**
+
+| Loader | Queries | Notes |
+|---|---|---|
+| `getAllYears()` | 2 | Years + subject count per year |
+| `getYearByName(yearName)` | 1 | Returns null if not found or inactive |
+| `getSubjectsForYear(yearId)` | 2 | Subjects + topic counts + first 3 topic titles as preview |
+| `getSubjectByYearAndSlug(yearId, slug)` | 1 | Fetches all subjects for the year, slug-matches in application code |
+| `getTopicsForSubject(subjectId, userId)` | 4 | Topics → worksheets + lectures (parallel) → attempts |
+
+All loaders catch all errors and return `[]` or `null` so pages degrade gracefully.
+
+**Components:**
+- `BreadcrumbNav` — `<nav aria-label="Breadcrumb">` with ordered list. Last crumb has no `href` and receives `aria-current="page"`.
+- `TopicRow` — full-row `<Link>` to `/learn/[syncId]`. Status badge uses `aria-label` for screen readers: `"You have attempted this topic"` / `"You have not started this topic"`.
+
+**Bad slugs:** year and subject pages call `notFound()` from `next/navigation` when the slug doesn't resolve.
+
+**Heading hierarchy:** one `<h1>` per page (the year display name or subject name). Breadcrumb is above the `<h1>`.
+
+**TODO:** topics in `getTopicsForSubject` are ordered by `created_at` ascending (assumes content is added in teaching order). Add a `display_order` column to `topics` for explicit ordering.
+
+---
+
 ## Cloudflare Deployment
 
 The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes (pages, layouts, API routes) must have `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.

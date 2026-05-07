@@ -138,6 +138,48 @@ app/(app)/dashboard/
 
 ---
 
+## Browse (`/browse/**`)
+
+Three nested server-rendered routes for content discovery.
+
+**Route structure:**
+
+```
+/browse                           Year selector — grid of active year cards
+/browse/[year]                    Subject grid (e.g. /browse/year-12)
+/browse/[year]/[subject]          Topic list  (e.g. /browse/year-12/mathematical-methods)
+```
+
+**File structure:**
+
+```
+app/(app)/browse/
+├── page.tsx                  Year selector
+├── loading.tsx               Generic loading skeleton
+├── _lib/
+│   └── loaders.ts            getAllYears, getYearByName, getSubjectsForYear,
+│                             getSubjectByYearAndSlug, getTopicsForSubject
+├── _components/
+│   ├── BreadcrumbNav.tsx     <nav aria-label="Breadcrumb"> with aria-current
+│   └── TopicRow.tsx          Full-row link with attempt badge
+├── [year]/
+│   └── page.tsx              Subject grid with topic counts + preview titles
+└── [year]/[subject]/
+    └── page.tsx              Topic list with Attempted / Not started badges
+```
+
+**Slug conventions:**
+- `[year]` = `years.name` (e.g. `year-12`, `year-7`)
+- `[subject]` = subject name lowercased with spaces replaced by hyphens (e.g. `mathematical-methods`). Generated at query time by `toSubjectSlug()` in `loaders.ts` — no DB column needed.
+
+**All three pages export `force-dynamic`** — SSR on every request so new content appears without a redeploy.
+
+**Bad slugs** — unresolvable year or subject slugs call `notFound()`.
+
+**Attempt status** — the topic list reads the session JWT for `userId` and marks each topic "✓ Attempted" or "Not started" based on whether the user has any attempt on that topic's worksheet.
+
+---
+
 ## Database Conventions
 
 - **Dual-key:** every table has `id` (bigserial, internal FKs only) and `sync_id` (uuid, used in all URLs and API responses). Never expose `id` to clients.
