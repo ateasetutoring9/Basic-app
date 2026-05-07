@@ -285,6 +285,8 @@ function UnpublishModal({ onCancel, onConfirm, submitting }: {
 }
 
 function LectureSection({ topic }: { topic: TopicDetail }) {
+  const router = useRouter();
+
   const initMarkdown =
     topic.lecture?.format === "text"
       ? (topic.lecture.content.markdown as string) ?? ""
@@ -461,6 +463,14 @@ function LectureSection({ topic }: { topic: TopicDetail }) {
     }
   }
 
+  async function handleSaveAndFinish() {
+    if (isPublished && !validate()) return;
+    const result = await callSave(isPublished);
+    if (!result.ok) return;
+    if (result.id) setLectureId(result.id);
+    router.push("/admin/topics");
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -534,11 +544,14 @@ function LectureSection({ topic }: { topic: TopicDetail }) {
         </p>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-3 mt-5">
+        <div className="flex items-center gap-3 mt-5 flex-wrap">
           {isPublished ? (
             <>
-              <Button onClick={handleSaveChanges} disabled={saving}>
+              <Button variant="secondary" onClick={handleSaveChanges} disabled={saving}>
                 {saving ? "Saving…" : "Save changes"}
+              </Button>
+              <Button onClick={handleSaveAndFinish} disabled={saving}>
+                {saving ? "Saving…" : "Save and finish"}
               </Button>
               <Button variant="secondary" onClick={() => setShowModal(true)} disabled={saving}>
                 Unpublish
@@ -546,11 +559,14 @@ function LectureSection({ topic }: { topic: TopicDetail }) {
             </>
           ) : (
             <>
-              <Button onClick={handleSaveAndPublish} disabled={saving}>
+              <Button variant="secondary" onClick={handleSaveAndPublish} disabled={saving}>
                 {saving ? "Saving…" : "Save and publish"}
               </Button>
               <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
                 {saving ? "Saving…" : "Save draft"}
+              </Button>
+              <Button onClick={handleSaveAndFinish} disabled={saving}>
+                {saving ? "Saving…" : "Save and finish"}
               </Button>
             </>
           )}
