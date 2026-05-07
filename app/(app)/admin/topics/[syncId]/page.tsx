@@ -225,6 +225,7 @@ function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =>
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [error, setError] = useState("");
   const isDirty = useRef(false);
 
@@ -269,6 +270,24 @@ function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =>
     await onSaved();
   }
 
+  async function togglePublish() {
+    if (!topic.lecture) return;
+    setToggling(true);
+    await fetch("/api/admin/lectures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topicId: topic.id,
+        title: topic.lecture.title,
+        format: topic.lecture.format,
+        content: topic.lecture.content,
+        is_published: !topic.lecture.isPublished,
+      }),
+    });
+    setToggling(false);
+    await onSaved();
+  }
+
   return (
     <section className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -277,6 +296,19 @@ function LectureSection({ topic, onSaved }: { topic: TopicDetail; onSaved: () =>
           <p className="text-xs text-muted mt-0.5">Markdown text format</p>
         </div>
         <div className="flex items-center gap-3">
+          {topic.lecture && (
+            <button
+              onClick={togglePublish}
+              disabled={toggling}
+              className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
+                topic.lecture.isPublished
+                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {toggling ? "…" : topic.lecture.isPublished ? "Published" : "Draft"}
+            </button>
+          )}
           <button
             onClick={() => setPreview((p) => !p)}
             className="text-sm text-muted hover:text-fg transition-colors"

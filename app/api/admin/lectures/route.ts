@@ -7,11 +7,14 @@ export const runtime = 'edge';
 // Upserts the lecture for the given topic.
 export async function POST(req: Request) {
   const body = await req.json();
-  const { topicId, title, format, content } = body;
+  const { topicId, title, format, content, is_published } = body;
 
   if (!topicId || !title || !format || content === undefined) {
     return NextResponse.json({ error: "topicId, title, format, and content are required" }, { status: 400 });
   }
+
+  // Default to publishing when saving unless caller explicitly passes false
+  const published: boolean = is_published === false ? false : true;
 
   // Normalise content to the DB JSONB shape
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,13 +43,13 @@ export async function POST(req: Request) {
   if (existing) {
     const { error } = await supabase
       .from("lectures")
-      .update({ title, format, content: dbContent })
+      .update({ title, format, content: dbContent, is_published: published })
       .eq("id", existing.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
     const { error } = await supabase
       .from("lectures")
-      .insert({ topic_id: topicId, title, format, content: dbContent });
+      .insert({ topic_id: topicId, title, format, content: dbContent, is_published: published });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
