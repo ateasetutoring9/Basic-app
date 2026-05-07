@@ -106,6 +106,38 @@ years → subjects → topics → lecture (1:1) + worksheet (1:1) → attempts
 
 ---
 
+## Dashboard (`/dashboard`)
+
+The student dashboard is a streaming server-rendered page at `app/(app)/dashboard/`.
+
+**Structure — thin page + section components:**
+
+```
+app/(app)/dashboard/
+├── page.tsx                     Reads JWT, composes sections in Suspense
+├── _lib/
+│   ├── types.ts                 InProgressTopic, RecommendedTopic, DashboardSubject, RecentAttempt
+│   └── loaders.ts               Supabase data loaders (one per section)
+└── _components/
+    ├── Greeting.tsx             Instant render — time-based greeting, no DB call
+    ├── ContinueLearning.tsx     In-progress worksheets; onboarding empty state
+    ├── Recommended.tsx          Latest published topics; hidden if empty
+    ├── YourSubjects.tsx         All active subjects with topic counts
+    └── RecentActivity.tsx       Last 3 attempts; hidden if empty
+```
+
+**Streaming:** Each section is wrapped in `<Suspense>` with a skeleton fallback. The greeting renders immediately from the JWT; sections stream in as their DB queries resolve.
+
+**Error handling:** Each section catches its own errors and shows an inline message — no section failure crashes the page.
+
+**Known limitations / TODOs in the code:**
+- `getUserSubjects` returns all active subjects — no year or subject filtering until `year_id` and subject selection exist on the user model
+- `getRecommendedTopics` returns the latest published topics — no year-level curation yet
+- Greeting shows "All your subjects" — will show "Year X · Subject 1, Subject 2" once user model stores year and subject preferences
+- Time-of-day greeting uses UTC+10 offset (AEST) — no per-user timezone support yet
+
+---
+
 ## Database Conventions
 
 - **Dual-key:** every table has `id` (bigserial, internal FKs only) and `sync_id` (uuid, used in all URLs and API responses). Never expose `id` to clients.

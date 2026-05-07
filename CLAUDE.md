@@ -342,6 +342,32 @@ The public landing page (`/`) is a fully static server-rendered page. `app/(publ
 
 ---
 
+## Dashboard (`/dashboard`)
+
+The student dashboard at `app/(app)/dashboard/page.tsx` is a thin async server component that reads the JWT and composes Suspense-wrapped section components. All data fetching is in `app/(app)/dashboard/_lib/loaders.ts`.
+
+**Loader pattern** — each loader follows the same shape:
+1. Query attempts/topics/subjects/years in sequential Supabase calls (PostgREST joins are used where safe; worksheets are always fetched by `topic_id` separately to avoid broken FK joins).
+2. Build `Map` lookups to join in application code.
+3. Return typed results; catch all errors and return `[]` so sections degrade gracefully.
+
+**Section components** (`_components/`) are all async server components. Each exports:
+- A default async component that fetches its own data and renders.
+- A `*Skeleton` named export used as the Suspense fallback in `page.tsx`.
+
+**Heading hierarchy:**
+- Greeting (`<h2>`) — identification, not the primary page purpose.
+- "Continue learning" / "Let's get you started" (`<h1>`) — primary page heading.
+- All other section headings (`<h2>`).
+
+**Known gaps (marked TODO in source):**
+- No year level on the user model — `getUserSubjects` returns all active subjects; `getRecommendedTopics` ignores year filtering.
+- No subject selection on the user model — "Your subjects" shows all subjects.
+- Greeting shows "All your subjects" placeholder until user model gains `year_id` and subject preferences.
+- Time-of-day greeting uses UTC+10 offset — no per-user timezone.
+
+---
+
 ## Cloudflare Deployment
 
 The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes (pages, layouts, API routes) must have `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.
