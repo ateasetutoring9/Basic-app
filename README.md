@@ -180,6 +180,49 @@ app/(app)/browse/
 
 ---
 
+## Learn (`/learn/[syncId]`)
+
+Single dynamic route that renders a topic's lecture, worksheet CTA, and discussion.
+
+**File structure:**
+
+```
+app/(app)/learn/
+├── [syncId]/
+│   └── page.tsx              Reads JWT, fetches topic+lecture+worksheet+comments
+├── _lib/
+│   ├── types.ts              LearnTopic, LearnLecture, WorksheetMeta, CommentNode
+│   └── loaders.ts            getTopicWithLecture, getWorksheetMetaForTopic,
+│                             getCommentCountForTopic, getCommentsForTopic
+└── _components/
+    ├── LectureContent.tsx    Dispatcher → format-specific renderer
+    ├── TextLecture.tsx       react-markdown with 17px/1.7lh prose wrapper
+    ├── VideoLecture.tsx      YouTubeFacade (privacy-enhanced, facade click-to-play)
+    ├── SlidesLecture.tsx     SlidesViewer (postMessage navigation)
+    ├── WorksheetCta.tsx      Accent CTA band; shows best score if user has attempts
+    ├── Discussion.tsx        <details>/<summary> collapsed section
+    ├── CommentThread.tsx     Depth-capped (3 levels) recursive comment tree
+    └── CommentForm.tsx       Disabled form — TODO: wire to POST /api/comments
+```
+
+**Layout width:** `max-w-2xl` (680px) for text lectures; `max-w-5xl` for video/slides.
+
+**Breadcrumb:** `Year 12 · Subject · Topic title` with `·` separators. Year and subject segments link back into browse. Subject link uses the same `toSubjectSlug()` convention as browse pages.
+
+**Sub-line:** `~X min read` (word count ÷ 200) for text; `X min watch` (from `duration_seconds`) for video; `Slide deck` for slides.
+
+**Unpublished states:**
+- Lecture unpublished but worksheet published → "Lecture coming soon." + worksheet CTA shown.
+- Both unpublished → "This topic is being prepared. Check back soon." No CTA.
+
+**Worksheet CTA:** links to `/worksheet/[worksheet-sync-id]`. Copy changes to "Try again" + best score if the user has prior attempts.
+
+**Discussion:** collapsed by default via `<details>`. Comment tree depth-capped at 3 levels — replies at depth 3+ are not rendered. Comment form is disabled pending `/api/comments` endpoint.
+
+**TODO:** LaTeX support (remark-math + rehype-katex) once packages installed.
+
+---
+
 ## Database Conventions
 
 - **Dual-key:** every table has `id` (bigserial, internal FKs only) and `sync_id` (uuid, used in all URLs and API responses). Never expose `id` to clients.

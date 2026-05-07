@@ -368,6 +368,38 @@ The student dashboard at `app/(app)/dashboard/page.tsx` is a thin async server c
 
 ---
 
+## Learn (`/learn/[syncId]`)
+
+Single `force-dynamic` SSR route. All data fetching is in `app/(app)/learn/_lib/loaders.ts`. Components are in `app/(app)/learn/_components/`.
+
+**Route param:** `syncId` = topic's `sync_id` (uuid). `getTopicWithLecture` returns null for unpublished or soft-deleted topics → `notFound()`.
+
+**Loaders:**
+
+| Loader | Notes |
+|---|---|
+| `getTopicWithLecture(syncId)` | Topic + lecture + subject + year. Null if not found/deleted/unpublished. Lecture may be unpublished (check `lecture.isPublished`). |
+| `getWorksheetMetaForTopic(topicId, userId?)` | Returns `WorksheetMeta \| null`. Includes `bestAttempt` when `userId` provided. |
+| `getCommentCountForTopic(topicId)` | Count of non-hidden, non-deleted comments. |
+| `getCommentsForTopic(topicId)` | Flat fetch ordered by `id`, tree-built in application code. |
+
+**Unpublished content rules:**
+- Topic unpublished → `notFound()`
+- Lecture unpublished, worksheet published → show "Lecture coming soon." + worksheet CTA
+- Both unpublished → show "This topic is being prepared. Check back soon."
+
+**Layout width:** `max-w-2xl` for text; `max-w-5xl` for video/slides.
+
+**Subject slug in breadcrumb:** computed with `toSubjectSlug(subject.name)` (same function as browse pages — inline in the page file, not imported).
+
+**Worksheet CTA:** links to `/worksheet/[worksheet.syncId]` (the worksheet's own `sync_id`, not the topic's).
+
+**Comment tree:** built in application code from a flat ordered-by-id result. `CommentThread` renders up to 3 depth levels (0, 1, 2); replies of a depth-2 comment are not rendered. Reply button is disabled pending the comment POST endpoint.
+
+**TODO:** install `remark-math` + `rehype-katex` and pass to `MarkdownContent` for LaTeX support in text lectures.
+
+---
+
 ## Browse (`/browse/**`)
 
 Three `force-dynamic` SSR routes. All data fetching is in `app/(app)/browse/_lib/loaders.ts`. Shared components live in `app/(app)/browse/_components/`.
