@@ -10,7 +10,7 @@ export default function TopNav() {
 
         {/* Logo */}
         <Link
-          href="/"
+          href="/dashboard"
           className="font-bold text-lg text-fg hover:text-primary transition-colors shrink-0 min-h-[44px] flex items-center gap-2"
         >
           <Image src={logo} alt="At Ease Learning" width={36} height={36} className="rounded-full" />
