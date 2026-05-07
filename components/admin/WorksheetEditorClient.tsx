@@ -43,7 +43,7 @@ export function WorksheetEditorClient({
   const [questions, setQuestions] = useState<EditorQuestion[]>(
     initialWorksheet ? worksheetToEditorQuestions(initialWorksheet) : [blankQuestion()]
   );
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "deleting" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "finishing" | "deleting" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const isDirty = useRef(false);
 
@@ -58,18 +58,15 @@ export function WorksheetEditorClient({
 
   function markDirty() { isDirty.current = true; }
 
-  async function handleSave() {
-    // Step 8: if attempts already exist, confirm before overwriting questions
+  async function doSave(): Promise<boolean> {
     if (attemptCount > 0) {
       const ok = confirm(
         `${attemptCount} student attempt${attemptCount !== 1 ? "s" : ""} already exist for this worksheet.\n\n` +
         `Editing questions will not change past attempt scores, but the questions students ` +
         `answered may no longer match the current version.\n\nContinue and save?`
       );
-      if (!ok) return;
+      if (!ok) return false;
     }
-
-    setStatus("saving");
     setErrorMsg("");
     try {
       const res = await fetch("/api/admin/worksheet", {
@@ -89,12 +86,28 @@ export function WorksheetEditorClient({
         throw new Error(data.error ? JSON.stringify(data.error) : "Save failed");
       }
       isDirty.current = false;
-      setStatus("saved");
-      setTimeout(() => setStatus("idle"), 2500);
+      return true;
     } catch (err) {
       setErrorMsg((err as Error).message);
       setStatus("error");
+      return false;
     }
+  }
+
+  async function handleSave() {
+    setStatus("saving");
+    const ok = await doSave();
+    if (ok) {
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 2500);
+    }
+  }
+
+  async function handleSaveAndFinish() {
+    if (!backHref) return;
+    setStatus("finishing");
+    const ok = await doSave();
+    if (ok) router.push(backHref);
   }
 
   async function handleDelete() {
@@ -136,7 +149,7 @@ export function WorksheetEditorClient({
     });
   }
 
-  const isBusy = status === "saving" || status === "deleting";
+  const isBusy = status === "saving" || status === "finishing" || status === "deleting";
 
   return (
     <div className="max-w-3xl">
@@ -253,9 +266,14 @@ export function WorksheetEditorClient({
             {status === "deleting" ? "Deleting…" : "Delete worksheet"}
           </Button>
         )}
-        <Button size="lg" onClick={handleSave} disabled={isBusy}>
+        <Button size="lg" variant="secondary" onClick={handleSave} disabled={isBusy}>
           {status === "saving" ? "Saving…" : status === "saved" ? "Saved ✓" : "Save worksheet"}
         </Button>
+        {backHref && (
+          <Button size="lg" onClick={handleSaveAndFinish} disabled={isBusy}>
+            {status === "finishing" ? "Saving…" : "Save and finish"}
+          </Button>
+        )}
       </div>
     </div>
   );
