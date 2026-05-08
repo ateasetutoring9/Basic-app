@@ -463,6 +463,45 @@ export interface Database {
           }
         ];
       };
+      login_attempts: {
+        Row: {
+          id: number;
+          sync_id: string;
+          user_id: number | null;
+          email_attempted: string;
+          outcome: "success" | "wrong_password" | "user_not_found" | "account_locked" | "email_not_verified" | "rate_limited" | "error";
+          failure_detail: string | null;
+          ip_address: string;
+          user_agent: string | null;
+          attempted_at: string;
+          created_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          user_id?: number | null;
+          email_attempted: string;
+          outcome: "success" | "wrong_password" | "user_not_found" | "account_locked" | "email_not_verified" | "rate_limited" | "error";
+          failure_detail?: string | null;
+          ip_address: string;
+          user_agent?: string | null;
+          attempted_at?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          deleted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "login_attempts_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

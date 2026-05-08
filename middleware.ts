@@ -3,7 +3,7 @@ import { COOKIE_NAME } from "@/lib/auth/jwt";
 
 // Routes that require a session cookie to be present.
 // Real JWT verification happens in (app)/layout.tsx — middleware only checks presence.
-const APP_PREFIXES = ["/dashboard", "/browse", "/learn", "/worksheet", "/progress", "/admin", "/edit"];
+const APP_PREFIXES = ["/dashboard", "/browse", "/learn", "/worksheet", "/progress", "/admin", "/edit", "/settings"];
 
 function isAppRoute(pathname: string) {
   return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
