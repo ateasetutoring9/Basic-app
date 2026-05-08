@@ -306,6 +306,7 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
+- **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
 - **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
 - **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
 - **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
@@ -317,6 +318,21 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 
 - `GET /api/admin/topics` — returns **all** non-deleted topics (published + draft). The public loader `getAllTopics()` filters `is_published = true` — do not use it in admin contexts.
 - Browse pages (`/browse`, `/browse/[year]`, `/browse/[year]/[subject]`) are `force-dynamic` — server-rendered on every request so new DB content appears immediately without a redeploy.
+
+### Admin API auth guard
+
+**`lib/auth/requireAdmin.ts`** — every handler in every `/api/admin/*` route must call this as its first line:
+
+```ts
+const auth = await requireAdmin();
+if (auth instanceof Response) return auth;
+```
+
+It reads the session cookie, verifies the JWT, and checks `isAdmin`. Returns a `401 Response` on any failure. The `auth` object carries `{ userId, syncId, email }` for use within the handler (e.g. the self-delete check in `users/[id]` uses `auth.userId`).
+
+**Why both layout and API guard?** Next.js layouts only run when a browser navigates to a page — they do not intercept direct API calls (curl, fetch from another origin, Postman). Without the API-level guard, any unauthenticated request to `/api/admin/users` can read all emails, and a POST can create admin accounts. The layout check alone is not sufficient.
+
+**Do not add new `/api/admin/*` routes without calling `requireAdmin()` at the top of every handler.**
 
 ### Lecture publish flow (`/admin/topics/[syncId]`)
 
@@ -532,7 +548,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 ## What NOT To Do
 
-- **Don't expose `id` to API clients.** All external references use `sync_id`.
+- **Don't expose `id` to API clients.** All external references use `sync_id`. Login/signup responses must not include the bigserial `id`.
+- **Don't add `/api/admin/*` routes without calling `requireAdmin()`.** The admin layout does not protect direct API calls.
 - **Don't write to `_history` tables.** Triggers handle it.
 - **Don't enable RLS or write Supabase policies.** Auth is in the API layer.
 - **Don't hard-delete rows.** Set `deleted_at`.

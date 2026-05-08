@@ -53,6 +53,7 @@ app/
 | `app/(app)/layout.tsx` | App-zone layout — JWT verification + TopNav |
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
 | `lib/auth/jwt.ts` | `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS` |
+| `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
 | `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
 | `lib/supabase/server.ts` | `createServerClient()` — service role key, server-only |
 | `lib/supabase/database.types.ts` | Generated Supabase types |
@@ -309,6 +310,8 @@ Stored in `worksheets.questions` JSONB, validated in `lib/content/schemas.ts`:
 
 Admin API routes live under `/api/admin/` and use integer `id` for PATCH/DELETE, `sync_id` for GET-by-identity.
 
+**Every `/api/admin/*` handler enforces auth directly** via `requireAdmin()` from `lib/auth/requireAdmin.ts`. It verifies the JWT and checks `isAdmin` — returning 401 if either fails. API routes bypass Next.js layouts, so the layout-level `isAdmin` check alone is not sufficient.
+
 ### Lecture publish flow
 
 The topic detail page (`/admin/topics/[syncId]`) includes a full publish flow for lectures:
@@ -333,6 +336,12 @@ The topic detail page (`/admin/topics/[syncId]`) includes a full publish flow fo
 | Unauthenticated → app route | `/login` |
 | Authenticated → `/login` or `/signup` | `/dashboard` |
 | Authenticated but not admin → `/admin/**` | `/dashboard` |
+
+**Auth is enforced in two places for admin API routes:**
+1. `app/(app)/admin/layout.tsx` — blocks the browser UI for non-admins
+2. `lib/auth/requireAdmin.ts` — blocks direct API calls (curl, fetch, etc.)
+
+Login and signup responses expose only `syncId`, `email`, and `isAdmin` — the internal bigserial `id` is never returned to clients.
 
 ---
 
