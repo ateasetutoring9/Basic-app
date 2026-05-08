@@ -335,6 +335,31 @@ Every login attempt (success or failure) is written to the `login_attempts` tabl
 
 ---
 
+## Error Monitoring
+
+The app uses `@sentry/nextjs` v10. EU ingest region. Org: `at-ease-tutoring`, project: `prod`.
+
+**Three config files** (server, edge, client) all share the same privacy settings:
+- `sendDefaultPii: false` — no cookies, auth headers, or email attached automatically
+- `tracesSampleRate: 0.1` in production, `1.0` in dev
+
+**Data scrubbing** (`lib/sentry/scrub.ts`) — `beforeSend` hook applied to all three configs:
+- Drops `NEXT_REDIRECT` / `NEXT_NOT_FOUND` (Next.js internals, not real errors)
+- Drops 401, 403, 404, 429 HTTP status events (intentional responses)
+- Redacts fields whose keys contain `password`, `token`, `secret`, `cookie`, `authorization`, or `api_key`
+
+**User context** — set in `app/(app)/layout.tsx` after JWT verification:
+- `id` = `session.syncId` (uuid) — never the bigserial `id`, never email
+- `segment` = `"admin"` or `"user"`
+
+**Tunnel route:** `/monitoring` — proxies browser events through Next.js to avoid ad-blockers.
+
+**Source maps** uploaded at build time. Requires `SENTRY_AUTH_TOKEN` in Cloudflare Pages build environment.
+
+**Test endpoint:** `GET /api/sentry-test` — admin-only. Delete once confirmed working.
+
+---
+
 | `/admin` | Dashboard — live counts of content and users |
 | `/admin/years` | CRUD year levels, toggle active |
 | `/admin/subjects` | CRUD subjects, year filter |
@@ -394,6 +419,13 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 JWT_SECRET=
+
+# Sentry (optional in dev — errors logged to console if unset)
+NEXT_PUBLIC_SENTRY_DSN=
+SENTRY_DSN=
+SENTRY_AUTH_TOKEN=
+SENTRY_ORG=at-ease-tutoring
+SENTRY_PROJECT=prod
 ```
 
 `JWT_SECRET` falls back to a hardcoded dev string if unset — **must be set in production**.
@@ -429,6 +461,12 @@ Set these under **Settings → Environment Variables** for both **Production** a
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain text | Supabase → Project → Settings → API → `anon` key |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase → Project → Settings → API → `service_role` key |
 | `JWT_SECRET` | **Secret** | A random 48-character string — generate once, never change |
+| `NEXT_PUBLIC_SENTRY_DSN` | Plain text | Sentry → Project → Settings → Client Keys (DSN) |
+| `SENTRY_DSN` | Plain text | Same DSN value as above |
+| `SENTRY_AUTH_TOKEN` | **Secret** | Sentry → Account Settings → Auth Tokens (needs `project:releases` + `org:read`) |
+| `SENTRY_ORG` | Plain text | `at-ease-tutoring` |
+| `SENTRY_PROJECT` | Plain text | `prod` |
+| `SENTRY_ENVIRONMENT` | Plain text | `production` (use `preview` for preview deployments) |
 
 `NEXT_PUBLIC_*` variables are inlined at build time, so they must be present when Cloudflare runs the build (set them as **Build** variables, not just runtime).
 

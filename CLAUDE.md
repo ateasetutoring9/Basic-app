@@ -559,6 +559,55 @@ app/(app)/settings/
 
 ---
 
+## Error Monitoring (Sentry)
+
+The app uses `@sentry/nextjs` v10 for error monitoring. EU ingest region (`ingest.de.sentry.io`). Org: `at-ease-tutoring`, project: `prod`.
+
+**Config files:**
+
+| File | Runtime | Notes |
+|---|---|---|
+| `sentry.server.config.ts` | Node.js | Loaded via `instrumentation.ts` |
+| `sentry.edge.config.ts` | Edge (Cloudflare Workers) | Loaded via `instrumentation.ts` |
+| `sentry.client.config.ts` | Browser | Auto-loaded by `withSentryConfig` in `next.config.mjs` |
+
+All three share the same settings — single source of truth is `lib/sentry/scrub.ts`.
+
+**`lib/sentry/scrub.ts` — shared `beforeSend` hook:**
+- Drops `NEXT_REDIRECT` and `NEXT_NOT_FOUND` (Next.js internals, not real errors)
+- Drops events with `http.status_code` 401, 403, 404, or 429 (intentional responses)
+- Redacts any request body/header/extra field whose key contains `password`, `token`, `secret`, `cookie`, `authorization`, `api_key`, or `apikey`
+- Scrubs `request.cookies` entirely
+
+**User context — `app/(app)/layout.tsx`:**
+```ts
+Sentry.setUser({ id: session.syncId, segment: session.isAdmin ? "admin" : "user" });
+```
+Uses `sync_id` (uuid) only — never the bigserial `id`, never email.
+
+**Privacy settings (all three configs):**
+- `sendDefaultPii: false` — never attaches cookies, auth headers, or user email automatically
+- `tracesSampleRate: 0.1` in production, `1.0` in development
+
+**Tunnel route:** `/monitoring` (configured in `next.config.mjs` via `withSentryConfig`). Routes browser-side events through the Next.js server to avoid ad-blocker interference.
+
+**Source maps:** uploaded at build time by `withSentryConfig`. Requires `SENTRY_AUTH_TOKEN` in the build environment (Cloudflare Pages → Settings → Environment Variables).
+
+**Test endpoint:** `GET /api/sentry-test` — admin-only; throws a test error. Delete once the integration is confirmed working in the Sentry dashboard.
+
+**Required environment variables:**
+
+| Variable | Where used |
+|---|---|
+| `NEXT_PUBLIC_SENTRY_DSN` | Client + edge + server configs |
+| `SENTRY_DSN` | Server config fallback |
+| `SENTRY_AUTH_TOKEN` | Source map upload at build time |
+| `SENTRY_ORG` | `at-ease-tutoring` |
+| `SENTRY_PROJECT` | `prod` |
+| `SENTRY_ENVIRONMENT` | `production` (or `preview`) |
+
+---
+
 ## Cloudflare Deployment
 
 The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes (pages, layouts, API routes) must have `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.

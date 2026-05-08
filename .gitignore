@@ -37,3 +37,6 @@ next-env.d.ts
 
 # Retired: content now lives in Supabase. Delete this folder after DB migration is verified.
 /content
+
+# Sentry Config File
+.env.sentry-build-plugin

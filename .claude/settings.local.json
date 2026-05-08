@@ -25,7 +25,10 @@
       "Bash(node -e ' *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(npx @sentry/wizard@latest -i nextjs --saas --org at-ease-tutoring --project prod)",
+      "Bash(node -e \"const p = require\\('./node_modules/@sentry/nextjs/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(node -e \"try { const s = require\\('@sentry/core'\\); console.log\\(typeof s.ErrorEvent\\); } catch\\(e\\) { console.log\\('not found:', e.message\\); }\")"
     ]
   }
 }
