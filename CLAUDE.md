@@ -171,6 +171,27 @@ Do not use the old types `multiple-choice`, `fill-blank` — they no longer exis
 
 ---
 
+### `login_attempts`
+Append-only audit log of every login attempt. No `updated_at`, no history mirror.
+
+| Column | Notes |
+|---|---|
+| `user_id` | Nullable FK → `users.id`; null when email not found |
+| `email_attempted` | `citext` — the email that was submitted |
+| `outcome` | `success` \| `wrong_password` \| `user_not_found` \| `account_locked` \| `email_not_verified` \| `rate_limited` \| `error` |
+| `failure_detail` | Optional context (e.g. "Locked until \<timestamp>") |
+| `ip_address` | `inet` — source IP extracted from `x-forwarded-for` → `x-real-ip` → `0.0.0.0` |
+| `user_agent` | Capped at 500 chars before insert |
+| `attempted_at` | Timestamp of the attempt |
+
+**Rules:**
+- Written by `lib/auth/log-login-attempt.ts` via fire-and-forget (`void logLoginAttempt(...)`) — failures never block the login response.
+- Never log the password — the helper's signature does not accept one.
+- `user_not_found` rows have `user_id = null`; they are filtered out of the user-facing recent activity page.
+- No `updated_at` column. No history mirror. Soft-delete with `deleted_at` only.
+
+---
+
 ### `attempts`
 A student's worksheet submission.
 
@@ -307,6 +328,8 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
 - **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
+- **Login attempt logging** — `lib/auth/log-login-attempt.ts` writes to `login_attempts` at every terminal path in the login route. Called with `void` so it never blocks the response. The login route separates `user_not_found` (no user row) from `wrong_password` (user found, bad password) so each gets the correct outcome in the log.
+- **`lib/request-meta.ts`** — call `getRequestMeta(request)` to extract `{ ipAddress, userAgent }` from any `Request`. Used by the login route; reuse for any future auth route that needs to log.
 - **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
 - **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
 - **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
@@ -502,6 +525,37 @@ All loaders catch all errors and return `[]` or `null` so pages degrade graceful
 **Heading hierarchy:** one `<h1>` per page (the year display name or subject name). Breadcrumb is above the `<h1>`.
 
 **TODO:** topics in `getTopicsForSubject` are ordered by `created_at` ascending (assumes content is added in teaching order). Add a `display_order` column to `topics` for explicit ordering.
+
+---
+
+## Settings (`/settings/**`)
+
+`/settings` is a placeholder hub page. Currently it has one sub-section.
+
+### `/settings/security` — Recent activity
+
+Shows the current user's last 20 login attempts from `login_attempts`.
+
+**File structure:**
+```
+app/(app)/settings/
+├── page.tsx                        Settings hub (placeholder)
+└── security/
+    ├── page.tsx                    Recent activity — async server component
+    └── _lib/
+        ├── loaders.ts              getRecentLoginAttempts(userId, limit?)
+        └── user-agent.ts           parseUserAgent(ua) → { os, browser }
+```
+
+**Loader (`getRecentLoginAttempts`):**
+- Queries `login_attempts` where `user_id = userId` and `outcome != 'user_not_found'` and `deleted_at is null`, ordered by `attempted_at desc`, limit 20.
+- Masks IP to first two octets (e.g. `203.0.x.x`) — never exposes raw IP.
+- Parses user-agent inline into `{ os, browser }` — no library.
+- Returns only `syncId`, `attemptedAt`, `outcome`, `ipMasked`, `device` — never raw `id`, `ip_address`, or `user_agent`.
+
+**UA parser (`parseUserAgent`):** inline regex — OS: macOS / Windows / iOS / Android / Linux / Unknown; Browser: Edge / Chrome / Firefox / Safari / Other. Edge is checked before Chrome (Edge's UA contains "Chrome").
+
+**Page:** reads JWT to get `userId`, calls loader, renders a bordered card list. Outcome dot: green for `success`, red for failures, none for `error`. Time: relative under 7 days, absolute beyond. Empty state rendered when no rows.
 
 ---
 

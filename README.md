@@ -34,6 +34,8 @@ app/
       ├── worksheet/       /worksheet/[syncId]
       ├── progress/        /progress/**
       ├── edit/            /edit
+      ├── settings/        /settings
+      │                    /settings/security
       └── admin/           /admin/**
 ```
 
@@ -54,7 +56,9 @@ app/
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
 | `lib/auth/jwt.ts` | `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS` |
 | `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
+| `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
 | `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
+| `lib/request-meta.ts` | Extracts `ipAddress` and `userAgent` from any `Request` object |
 | `lib/supabase/server.ts` | `createServerClient()` — service role key, server-only |
 | `lib/supabase/database.types.ts` | Generated Supabase types |
 | `lib/content/loader.ts` | `getAllTopics()`, `getTopicBySyncId()` etc. (published-only) |
@@ -300,6 +304,37 @@ Stored in `worksheets.questions` JSONB, validated in `lib/content/schemas.ts`:
 
 | Route | Purpose |
 |---|---|
+| `/settings` | Settings hub — links to sub-sections |
+| `/settings/security` | Recent sign-in activity — last 20 `login_attempts` rows for the current user; outcome label, relative time, masked IP, device hint |
+
+---
+
+## Login Attempt Tracking
+
+Every login attempt (success or failure) is written to the `login_attempts` table.
+
+**Outcomes logged:**
+
+| Outcome | When |
+|---|---|
+| `success` | Password correct, account not locked |
+| `wrong_password` | User found, password incorrect |
+| `user_not_found` | No account for that email |
+| `account_locked` | Password correct but `locked_until` is in the future |
+| `email_not_verified` | Reserved — not yet triggered |
+| `rate_limited` | Reserved — not yet triggered |
+| `error` | Reserved — unhandled exception path |
+
+**Key rules:**
+- Logging is fire-and-forget (`void logLoginAttempt(...)`) — a DB write failure never blocks or fails the login response
+- The helper never accepts a password parameter
+- `user_agent` is capped at 500 chars before insert
+- IP is read from `x-forwarded-for` → `x-real-ip` → `0.0.0.0`
+
+**Recent activity page (`/settings/security`):** shows the user's own last 20 attempts. IP is masked to two octets (e.g. `203.0.x.x`). User-agent is parsed into OS + browser family inline — no library.
+
+---
+
 | `/admin` | Dashboard — live counts of content and users |
 | `/admin/years` | CRUD year levels, toggle active |
 | `/admin/subjects` | CRUD subjects, year filter |
