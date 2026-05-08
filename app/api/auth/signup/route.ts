@@ -61,7 +61,6 @@ export async function POST(req: Request) {
   });
 
   const res = NextResponse.json({
-    id: user.id,
     syncId: user.sync_id,
     email: user.email,
     isAdmin: user.is_admin,

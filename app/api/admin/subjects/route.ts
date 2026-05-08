@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const runtime = 'edge';
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("subjects")
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const { year_id, name, description, display_order = 0, is_active = true } = await req.json();
   if (!year_id || !name) {
     return NextResponse.json({ error: "year_id and name are required" }, { status: 400 });

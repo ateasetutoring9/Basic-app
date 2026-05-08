@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const runtime = 'edge';
 
@@ -7,6 +8,9 @@ export const runtime = 'edge';
 // Upserts the lecture for the given topic.
 // Returns { ok: true, id: number } so the client can store the lecture ID on first create.
 export async function POST(req: Request) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const body = await req.json();
   const { topicId, title, format, content, is_published } = body;
 
@@ -87,6 +91,9 @@ export async function POST(req: Request) {
 // Only flips the publish flag — never touches content.
 // Sets published_at when publishing for the first time; never clears it on unpublish.
 export async function PATCH(req: Request) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const body = await req.json();
   const { id, is_published } = body;
 

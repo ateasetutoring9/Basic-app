@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const runtime = 'edge';
 
@@ -21,6 +22,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ syncId: string }> }
 ) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const { syncId } = await params;
   const supabase = createServerClient();
   const { data, error } = await supabase

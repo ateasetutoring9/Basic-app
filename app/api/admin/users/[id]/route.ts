@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
-import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = 'edge';
 
 type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
-async function getCallerId(req: NextRequest): Promise<number | null> {
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  const payload = await verifyToken(token);
-  return payload?.userId ?? null;
-}
-
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -56,13 +51,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json(data);
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-  const callerId = await getCallerId(req);
-  if (callerId === id) {
+  if (auth.userId === id) {
     return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
   }
 

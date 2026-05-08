@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = 'edge';
@@ -7,6 +8,8 @@ export const runtime = 'edge';
 type SubjectUpdate = Database["public"]["Tables"]["subjects"]["Update"];
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const runtime = 'edge';
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("users")
@@ -16,6 +20,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   let email: string, password: string, is_admin: boolean, display_name: string | null;
   try {
     ({ email, password, is_admin = false, display_name = null } = await req.json());

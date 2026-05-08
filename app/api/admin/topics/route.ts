@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const runtime = 'edge';
 
 // Admin GET returns ALL topics (published + draft), unlike the public loader.
 export async function GET() {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("topics")
@@ -37,6 +41,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin();
+  if (auth instanceof Response) return auth;
+
   const { subject_id, title, description, thumbnail_url, is_published = false } = await req.json();
   if (!subject_id || !title) {
     return NextResponse.json({ error: "subject_id and title are required" }, { status: 400 });
