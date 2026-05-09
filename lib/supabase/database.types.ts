@@ -18,6 +18,7 @@ export interface Database {
           email_verified_at: string | null;
           password_reset_token: string | null;
           password_reset_expires_at: string | null;
+          password_changed_at: string | null;
           failed_login_attempts: number;
           locked_until: string | null;
           display_name: string | null;
@@ -34,6 +35,7 @@ export interface Database {
           email_verified_at?: string | null;
           password_reset_token?: string | null;
           password_reset_expires_at?: string | null;
+          password_changed_at?: string | null;
           failed_login_attempts?: number;
           locked_until?: string | null;
           display_name?: string | null;
@@ -50,6 +52,7 @@ export interface Database {
           email_verified_at?: string | null;
           password_reset_token?: string | null;
           password_reset_expires_at?: string | null;
+          password_changed_at?: string | null;
           failed_login_attempts?: number;
           locked_until?: string | null;
           display_name?: string | null;

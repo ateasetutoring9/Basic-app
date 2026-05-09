@@ -7,7 +7,11 @@ import { login } from "@/lib/auth/session";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-export function LoginForm() {
+interface LoginFormProps {
+  resetSuccess?: boolean;
+}
+
+export function LoginForm({ resetSuccess }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +40,12 @@ export function LoginForm() {
       <h1 className="text-page-title text-fg mb-2">Welcome back</h1>
       <p className="text-small text-muted mb-7">Log in to continue your learning.</p>
 
+      {resetSuccess && (
+        <p role="status" className="text-small text-success bg-success-soft border border-success rounded-md px-4 py-3 mb-5">
+          Password updated. You can now log in with your new password.
+        </p>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         <Input
           label="Email address"
@@ -47,15 +57,22 @@ export function LoginForm() {
           required
         />
 
-        <Input
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <div className="flex justify-end">
+            <Link href="/forgot-password" className="text-small text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        </div>
 
         {error && (
           <p role="alert" className="text-small text-error bg-error-soft border border-error rounded-md px-4 py-3">

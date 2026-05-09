@@ -16,6 +16,8 @@ Free, high-quality education for Year 7–12 students — lectures, worksheets, 
 | Passwords | bcryptjs, cost 12 |
 | Validation | Zod |
 | Markdown | react-markdown + remark-gfm |
+| Email | Resend — transactional email (password reset) |
+| Rate limiting | Upstash Redis + @upstash/ratelimit (sliding window) |
 
 ---
 
@@ -372,12 +374,37 @@ The topic detail page (`/admin/topics/[syncId]`) includes a full publish flow fo
 
 ---
 
+## Password Reset Flow
+
+Users who forget their password use `/forgot-password` → `/reset-password?token=<raw>`.
+
+**Route summary:**
+
+| Route | Purpose |
+|---|---|
+| `GET /forgot-password` | Form — user enters their email |
+| `POST /api/auth/forgot-password` | Generates token, stores SHA-256 hash in DB, sends email via Resend |
+| `GET /reset-password?token=<raw>` | Form — user sets a new password |
+| `POST /api/auth/reset-password` | Hashes token, validates against DB, updates `password_hash` + clears token + sets `password_changed_at` |
+
+**Security design:**
+- The raw token is sent in the email URL only; the database stores only the SHA-256 hex hash
+- `/api/auth/forgot-password` always returns `{ ok: true }` regardless of whether the email exists, preventing email enumeration
+- Token expiry is 1 hour (`password_reset_expires_at`)
+- `password_changed_at` is set on every successful reset. `verifyToken()` in `lib/auth/jwt.ts` compares this against the JWT's `iat` — any session issued before the password change is immediately invalidated
+- Rate limits: 10 requests/IP/hour on forgot-password; 3 requests/email/hour on forgot-password; 5 requests/IP/15 min on reset-password
+
+**Required env vars:** `RESEND_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL`, `EMAIL_FROM` (optional), `EMAIL_REPLY_TO` (optional)
+
+---
+
 ## Auth Flow
 
 | Action | Redirect |
 |---|---|
 | Login / Signup success | `/dashboard` |
 | Logout | `/login` |
+| Password reset success | `/login?reset=success` (shows success banner) |
 | Unauthenticated → app route | `/login` |
 | Authenticated → `/login` or `/signup` | `/dashboard` |
 | Authenticated but not admin → `/admin/**` | `/dashboard` |
@@ -404,9 +431,23 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 JWT_SECRET=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Email (Resend) — required for password reset
+RESEND_API_KEY=
+EMAIL_FROM=noreply@ateasetutoring.com       # must be a verified domain in Resend
+EMAIL_REPLY_TO=hello@ateasetutoring.com     # optional
+
+# Rate limiting (Upstash Redis) — required for forgot-password and reset-password
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 `JWT_SECRET` falls back to a hardcoded dev string if unset — **must be set in production**.
+
+**Local email testing:** Use the Resend sandbox domain (`@resend.dev`) or point `EMAIL_FROM` to `onboarding@resend.dev` for testing without domain verification. Resend only delivers to the owner's email in sandbox mode.
+
+**Domain verification for production:** Go to Resend → Domains → Add domain → add the DNS records for `ateasetutoring.com`. Once verified, `EMAIL_FROM` can be set to any address on that domain.
 
 ---
 
@@ -441,6 +482,12 @@ Set these under **Settings → Environment Variables** for both **Production** a
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain text | Supabase → Project → Settings → API → `anon` key |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase → Project → Settings → API → `service_role` key |
 | `JWT_SECRET` | **Secret** | A random 48-character string — generate once, never change |
+| `NEXT_PUBLIC_APP_URL` | Plain text | Your production URL, e.g. `https://ateasetutoring.com` |
+| `RESEND_API_KEY` | **Secret** | Resend → API Keys |
+| `EMAIL_FROM` | Plain text | `noreply@ateasetutoring.com` (must be verified domain in Resend) |
+| `EMAIL_REPLY_TO` | Plain text | `hello@ateasetutoring.com` |
+| `UPSTASH_REDIS_REST_URL` | Plain text | Upstash → Database → REST API → Endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | **Secret** | Upstash → Database → REST API → Token |
 
 `NEXT_PUBLIC_*` variables are inlined at build time, so they must be present when Cloudflare runs the build (set them as **Build** variables, not just runtime).
 

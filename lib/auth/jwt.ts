@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { createServerClient } from "@/lib/supabase/server";
 
 export interface SessionPayload {
   userId: number;
@@ -23,7 +24,25 @@ export async function signToken(payload: SessionPayload): Promise<string> {
 export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
-    return payload as unknown as SessionPayload;
+    const session = payload as unknown as SessionPayload & { iat?: number };
+
+    // Invalidate JWTs issued before the last password change
+    if (session.userId && session.iat) {
+      const supabase = createServerClient();
+      const { data: user } = await supabase
+        .from("users")
+        .select("password_changed_at")
+        .eq("id", session.userId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (user?.password_changed_at) {
+        const changedAt = Math.floor(new Date(user.password_changed_at).getTime() / 1000);
+        if (session.iat < changedAt) return null;
+      }
+    }
+
+    return session;
   } catch {
     return null;
   }
