@@ -15,7 +15,7 @@ import { FAQ } from "./_components/FAQ";
 import { FinalCTA } from "./_components/FinalCTA";
 import { Footer } from "./_components/Footer";
 
-export const runtime = "edge";
+export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "At Ease Learning — Free Education for Year 7–12",
