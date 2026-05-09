@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import * as Sentry from "@sentry/nextjs";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
 import TopNav from "@/components/TopNav";
 
@@ -12,11 +11,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = token ? await verifyToken(token) : null;
 
   if (!session) redirect("/login");
-
-  Sentry.setUser({
-    id: session.syncId,
-    segment: session.isAdmin ? "admin" : "user",
-  });
 
   return (
     <>
