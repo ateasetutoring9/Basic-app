@@ -30,6 +30,8 @@ app/
 ├── (public)/          →  /               No navbar. No auth required.
 ├── (auth)/            →  /login          No navbar. Logged-in users → /dashboard.
 │                         /signup
+│                         /forgot-password
+│                         /reset-password
 └── (app)/             →  /dashboard      Navbar. Valid session required.
       ├── browse/          /browse/**
       ├── learn/           /learn/[syncId]
@@ -56,11 +58,15 @@ app/
 | `middleware.ts` | Edge auth gate — cookie presence check |
 | `app/(app)/layout.tsx` | App-zone layout — JWT verification + TopNav |
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
-| `lib/auth/jwt.ts` | `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS` |
+| `lib/auth/jwt.ts` | `signToken()`, `verifyToken()` — verifyToken also checks `password_changed_at` to invalidate pre-reset sessions |
 | `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
 | `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
 | `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
 | `lib/request-meta.ts` | Extracts `ipAddress` and `userAgent` from any `Request` object |
+| `lib/rate-limit.ts` | Upstash sliding-window rate limiters for forgot-password (IP + email) and reset-password (IP) |
+| `lib/email/client.ts` | Resend SDK singleton |
+| `lib/email/send.ts` | `sendEmail()` — fire-and-forget wrapper that never throws |
+| `lib/email/templates/password-reset.ts` | HTML + plain-text password reset email template |
 | `lib/supabase/server.ts` | `createServerClient()` — service role key, server-only |
 | `lib/supabase/database.types.ts` | Generated Supabase types |
 | `lib/content/loader.ts` | `getAllTopics()`, `getTopicBySyncId()` etc. (published-only) |

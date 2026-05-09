@@ -61,7 +61,9 @@ Registered students and admins.
 | `email` | `citext` — case-insensitive unique |
 | `password_hash` | bcrypt/argon2 hash; API sets this, never plaintext |
 | `email_verified_at` | null until email confirmed |
-| `password_reset_token` | short-lived token; check `password_reset_expires_at` |
+| `password_reset_token` | SHA-256 hex hash of the raw token; raw token is sent in the email URL only |
+| `password_reset_expires_at` | 1-hour expiry; must be checked alongside the token |
+| `password_changed_at` | set to `now()` on every successful password reset; `verifyToken()` uses this to invalidate pre-reset JWTs |
 | `failed_login_attempts` | incremented on bad password; reset on success |
 | `locked_until` | set when attempts exceeded |
 | `is_admin` | single auth flag; default false |
@@ -305,7 +307,7 @@ parentheses and do not appear in URLs.
 
 **`app/(public)/`** — landing page only (`/`). No navbar. Visible to anyone.
 
-**`app/(auth)/`** — `/login`, `/signup`. No navbar, centered form layout.
+**`app/(auth)/`** — `/login`, `/signup`, `/forgot-password`, `/reset-password`. No navbar, centered form layout.
 Middleware redirects logged-in users to `/dashboard` before the page renders.
 
 **`app/(app)/`** — all authenticated routes: `/dashboard`, `/browse`, `/learn`,
@@ -324,7 +326,7 @@ verify the JWT (that happens in the layout). Redirects:
 
 Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, HS256).
 
-- **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`
+- **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`. `verifyToken()` additionally queries `users.password_changed_at` and returns `null` if the JWT's `iat` is older than the last password change, immediately invalidating pre-reset sessions.
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
 - **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
@@ -334,6 +336,37 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
 - **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
 - **Login** → redirects to `/dashboard`. **Logout** → clears cookie and redirects to `/login`.
+- **Password reset** → `/forgot-password` → email with raw token → `/reset-password?token=<raw>` → `/login?reset=success`.
+
+---
+
+## Password Reset Flow
+
+**Routes:**
+- `POST /api/auth/forgot-password` — accepts `{ email }`. Generates a 32-byte base64url token using Web Crypto (`crypto.getRandomValues`), stores its SHA-256 hex hash in `users.password_reset_token` with `password_reset_expires_at = now() + 1 hour`, and sends the raw token in the reset URL via Resend. Always returns `{ ok: true }` regardless of whether the email exists — never reveal account existence.
+- `POST /api/auth/reset-password` — accepts `{ token, newPassword }`. Hashes the token with SHA-256, looks up the user where the hash matches and expiry is in the future, bcrypt-hashes the new password (cost 12), updates `password_hash`, clears `password_reset_token`/`password_reset_expires_at`, and sets `password_changed_at = now()`. Does **not** issue a new JWT — user must log in again.
+
+**Token security model:**
+- Raw token never touches the database. Only the SHA-256 hex hash is stored.
+- `verifyToken()` invalidates any JWT with `iat < password_changed_at`, so all existing sessions are logged out on password change.
+- The forgot-password route hashes a dummy token and does the DB lookup regardless of whether the email exists, so response time is constant.
+
+**Rate limits (`lib/rate-limit.ts` — Upstash sliding window):**
+- Forgot-password by IP: 10 req / 1 hour
+- Forgot-password by email: 3 req / 1 hour
+- Reset-password by IP: 5 req / 15 min
+
+**Email infrastructure:**
+- `lib/email/client.ts` — Resend SDK singleton; throws at startup if `RESEND_API_KEY` is missing.
+- `lib/email/send.ts` — `sendEmail({ to, subject, html, text })`. Wraps Resend in try/catch and never throws — a send failure must never propagate to the HTTP response.
+- `lib/email/templates/password-reset.ts` — `passwordResetEmail({ resetUrl, firstName? })` returns `{ subject, html, text }`. Inline styles only (email client compatibility). No exclamation marks. Subject: `Reset your At Ease Learning password`.
+
+**Required env vars:** `RESEND_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL` (used to construct the reset URL — strip trailing slash before appending).
+
+**UI pages (auth zone, no session required):**
+- `app/(auth)/forgot-password/page.tsx` + `components/auth/ForgotPasswordForm.tsx` — email form; transitions to "check your email" in-place after submit without a redirect.
+- `app/(auth)/reset-password/page.tsx` + `components/auth/ResetPasswordForm.tsx` — reads `?token` from searchParams (calls `notFound()` if missing); two password fields with show/hide toggles; client-side match validation before submit.
+- Login page (`app/(auth)/login/page.tsx`) reads `?reset=success` and passes `resetSuccess` to `LoginForm`, which shows a success banner. "Forgot password?" link appears below the password field.
 
 ---
 
@@ -640,7 +673,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 - **Don't enable RLS or write Supabase policies.** Auth is in the API layer.
 - **Don't hard-delete rows.** Set `deleted_at`.
 - **Don't manually set `updated_at`.** The trigger does it.
-- **Don't store or log plaintext passwords or reset tokens.**
+- **Don't store or log plaintext passwords or reset tokens.** The DB stores only the SHA-256 hash of the reset token; the raw token exists only in the email and in transit.
+- **Don't throw from `sendEmail()`.** Email-send failures must be swallowed — a Resend outage should never fail a password reset request or expose internals.
+- **Don't issue a JWT after `POST /api/auth/reset-password`.** The user must log in manually. Issuing a session automatically would bypass any MFA or account-lock logic added later.
 - **Don't add columns without updating the history table and its trigger function.**
 - **Don't create new tables without the full standard pattern** (see checklist below).
 - **Don't put `runtime = 'edge'` in `app/layout.tsx` (the root layout).** It propagates to all child routes and breaks `dynamic = 'force-static'` on static pages, causing them to crash in the edge worker.
@@ -675,8 +710,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   the API must enforce a cap.
 - **Polymorphic `reports.entity_id` has no DB-level FK.** The API must validate
   entity existence.
-- **No session/token tables.** Session management, refresh tokens, and rate
-  limiting belong in the API layer or a future migration.
+- **No session/token tables.** Session management and refresh tokens belong in the API layer or a future migration. Rate limiting is handled by Upstash Redis.
 - **`attempts` indices are not partial.** Soft-deleted attempts are included in
   index scans. Add `WHERE deleted_at IS NULL` partial indices if
   soft-deleted rows become numerous.
