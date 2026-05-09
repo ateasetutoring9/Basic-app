@@ -400,6 +400,8 @@ The public landing page (`/`) is a fully static server-rendered page. `app/(publ
 - Accent sections: `bg-accent-soft border-y border-border`
 - All CTAs use `<Link href="/signup">` or `<Link href="/login">` — no router needed
 - FAQ uses native `<details>`/`<summary>` — no JS, fully accessible, Tailwind `group-open:` for the chevron animation
+- `app/(public)/page.tsx` uses `export const dynamic = 'force-static'` (not `runtime = 'edge'`) — the page has no dynamic content so it is pre-rendered as a static HTML file at build time. Cloudflare Pages serves it directly without going through the edge worker. This is why the public layout also omits `runtime = 'edge'`.
+- **Do not add `runtime = 'edge'` to `app/(public)/page.tsx` or `app/(public)/layout.tsx`.** Doing so makes the page edge-rendered. The edge worker crashes when SSR-ing the landing page (large component tree + lucide-react at module scope), and Next.js will warn that `runtime = 'edge'` is incompatible with `force-static`.
 
 **Design system:** Token reference is in `app/_design-system.md`. CSS custom properties are defined in `app/globals.css` under `:root`. Tailwind extends them via `tailwind.config.ts`. Key tokens: `--accent` (eucalypt green `#2D5F4C`), `--font-display` (Fraunces), `--font-body` (Inter). Type scale utilities (`.text-hero`, `.text-section-title`, etc.) are in `@layer utilities` using `clamp()`.
 
@@ -561,60 +563,41 @@ app/(app)/settings/
 
 ## Error Monitoring (Sentry)
 
-The app uses `@sentry/nextjs` v10 for error monitoring. EU ingest region (`ingest.de.sentry.io`). Org: `at-ease-tutoring`, project: `prod`.
+**Sentry is removed from the `main` branch.** The `@sentry/nextjs` package remains in `package.json` but is not configured — no `instrumentation.ts`, no `withSentryConfig` in `next.config.mjs`, and `global-error.tsx` does not import from Sentry.
 
-**Config files:**
+**Why it was removed:** `@sentry/nextjs` v10 is incompatible with `@cloudflare/next-on-pages@1`. The Sentry webpack plugin injects code that the adapter cannot process, producing a fatal "A duplicated identifier has been detected in the same function file" build error. Three separate attempts to work around it (disabling auto-instrumentation flags, removing `withSentryConfig`, etc.) all failed.
 
-| File | Runtime | Notes |
-|---|---|---|
-| `sentry.server.config.ts` | Node.js | Loaded via `instrumentation.ts` |
-| `sentry.edge.config.ts` | Edge (Cloudflare Workers) | Loaded via `instrumentation.ts` |
-| `sentry.client.config.ts` | Browser | Auto-loaded by `withSentryConfig` in `next.config.mjs` |
+**Where the config lives:** The full Sentry configuration is preserved on the `develop` branch for future use. Org: `at-ease-tutoring`, project: `prod`, EU ingest region (`ingest.de.sentry.io`).
 
-All three share the same settings — single source of truth is `lib/sentry/scrub.ts`.
+**Re-integrating Sentry:** Cloudflare now recommends [OpenNext](https://opennext.js.org/) over `@cloudflare/next-on-pages`. Migrating the adapter is the recommended path to unblock Sentry. Do not attempt to re-add Sentry to `main` while `@cloudflare/next-on-pages` is the build adapter.
 
-**`lib/sentry/scrub.ts` — shared `beforeSend` hook:**
-- Drops `NEXT_REDIRECT` and `NEXT_NOT_FOUND` (Next.js internals, not real errors)
-- Drops events with `http.status_code` 401, 403, 404, or 429 (intentional responses)
-- Redacts any request body/header/extra field whose key contains `password`, `token`, `secret`, `cookie`, `authorization`, `api_key`, or `apikey`
-- Scrubs `request.cookies` entirely
-
-**User context — `app/(app)/layout.tsx`:**
-```ts
-Sentry.setUser({ id: session.syncId, segment: session.isAdmin ? "admin" : "user" });
-```
-Uses `sync_id` (uuid) only — never the bigserial `id`, never email.
-
-**Privacy settings (all three configs):**
-- `sendDefaultPii: false` — never attaches cookies, auth headers, or user email automatically
-- `tracesSampleRate: 0.1` in production, `1.0` in development
-
-**Tunnel route:** `/monitoring` (configured in `next.config.mjs` via `withSentryConfig`). Routes browser-side events through the Next.js server to avoid ad-blocker interference.
-
-**Source maps:** uploaded at build time by `withSentryConfig`. Requires `SENTRY_AUTH_TOKEN` in the build environment (Cloudflare Pages → Settings → Environment Variables).
-
-**Test endpoint:** `GET /api/sentry-test` — admin-only; throws a test error. Delete once the integration is confirmed working in the Sentry dashboard.
-
-**Required environment variables:**
-
-| Variable | Where used |
-|---|---|
-| `NEXT_PUBLIC_SENTRY_DSN` | Client + edge + server configs |
-| `SENTRY_DSN` | Server config fallback |
-| `SENTRY_AUTH_TOKEN` | Source map upload at build time |
-| `SENTRY_ORG` | `at-ease-tutoring` |
-| `SENTRY_PROJECT` | `prod` |
-| `SENTRY_ENVIRONMENT` | `production` (or `preview`) |
+**`global-error.tsx` constraint:** `app/global-error.tsx` must never import from `@sentry/nextjs` server SDK. Doing so pulls in `@prisma/instrumentation` (which uses dynamic `require`) into the edge bundle, crashing every edge-rendered route across the whole app. The current `global-error.tsx` is a plain error boundary with no Sentry dependency.
 
 ---
 
 ## Cloudflare Deployment
 
-The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`. All routes (pages, layouts, API routes) must have `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.
+The app is deployed to **Cloudflare Pages** using `@cloudflare/next-on-pages`.
 
 **Build tool:** `npx @cloudflare/next-on-pages@1`
 **Output dir:** `.vercel/output/static`
 **Wrangler config:** `wrangler.jsonc` at root with `pages_build_output_dir` and `nodejs_compat` flag.
+
+### Edge runtime rules
+
+Dynamic routes (pages, layouts, API routes) that perform server-side work must declare `export const runtime = 'edge'` — without this, Next.js tries to pre-render at build time and crashes because Supabase env vars are not available.
+
+**Critical constraint — do NOT put `runtime = 'edge'` in `app/layout.tsx` (the root layout).** The root layout's runtime propagates to all child routes. If it is `'edge'`, Next.js treats every child route as edge-rendered and `dynamic = 'force-static'` is silently ignored, preventing static generation. The root layout has no runtime declaration.
+
+**Where to declare `runtime = 'edge'`:**
+- `app/(app)/layout.tsx` — authenticates all app-zone routes
+- `app/(auth)/layout.tsx` — serves the login/signup zone
+- Every `/api/**` route file individually
+- `middleware.ts` is edge by default (no declaration needed)
+
+**Purely static pages** (no async data, no cookies): use `export const dynamic = 'force-static'` instead of `runtime = 'edge'`. Next.js pre-renders these as static HTML at build time; `next-on-pages` emits them as static files and Cloudflare Pages serves them without invoking the edge worker. The landing page (`app/(public)/page.tsx`) uses this pattern.
+
+**Checking route types:** `npm run build` outputs `○` for static (pre-rendered) and `ƒ` for dynamic (edge-rendered). The landing page should always show `○ /`. If it shows `ƒ /`, the edge runtime is bleeding in from a parent layout.
 
 ### Next.js 15 async APIs — required pattern
 
@@ -660,6 +643,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 - **Don't store or log plaintext passwords or reset tokens.**
 - **Don't add columns without updating the history table and its trigger function.**
 - **Don't create new tables without the full standard pattern** (see checklist below).
+- **Don't put `runtime = 'edge'` in `app/layout.tsx` (the root layout).** It propagates to all child routes and breaks `dynamic = 'force-static'` on static pages, causing them to crash in the edge worker.
+- **Don't import `@sentry/nextjs` from `app/global-error.tsx`.** It pulls the Sentry server SDK (and its Node.js-only `@prisma/instrumentation` dependency) into the edge bundle, crashing every edge-rendered route.
 
 ---
 
