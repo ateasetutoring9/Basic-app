@@ -348,11 +348,50 @@ Every login attempt (success or failure) is written to the `login_attempts` tabl
 
 ## Error Monitoring
 
-**Sentry is not active on the `main` branch.** `@sentry/nextjs` is incompatible with `@cloudflare/next-on-pages@1` — the Sentry webpack plugin causes a fatal "duplicated identifier" build error that could not be worked around. All Sentry config files were removed from `main`; the full configuration is preserved on the `develop` branch.
+**Sentry is configured on the `feature-testing` branch — not on `main`.** `@sentry/nextjs` v10 is incompatible with `@cloudflare/next-on-pages@1` (the current Cloudflare build adapter). Merging to `main` requires first migrating the adapter to [OpenNext](https://opennext.js.org/).
 
-To re-integrate Sentry in future: migrate from `@cloudflare/next-on-pages` to [OpenNext](https://opennext.js.org/) (Cloudflare's recommended adapter), which does not have this conflict.
+**Org:** `at-ease-tutoring` · **Project:** `prod` · **Region:** EU (`ingest.de.sentry.io`)
 
-**`app/global-error.tsx` must not import from `@sentry/nextjs`.** Importing the Sentry server SDK pulls in Node.js-only dependencies (`@prisma/instrumentation`) into the edge bundle and crashes every edge-rendered route.
+### Files
+
+| File | Purpose |
+|---|---|
+| `instrumentation-client.ts` | Browser-side Sentry init; tunnel, scrubbing, `onRouterTransitionStart` |
+| `sentry.server.config.ts` | Node.js runtime init; scrubbing, 4xx/redirect filtering |
+| `sentry.edge.config.ts` | Edge runtime init; same scrubbing, no Node-only APIs |
+| `instrumentation.ts` | `register()` loads the correct config per runtime; exports `onRequestError` |
+| `lib/sentry/scrub.ts` | `scrubObject()` — redacts password, token, cookie, session, apikey fields recursively |
+| `app/api/monitoring/route.ts` | Tunnel proxy — forwards browser events through the app domain to bypass ad blockers |
+| `app/api/sentry-test/route.ts` | Throws a test error on GET — **remove or gate before public launch** |
+| `next.config.mjs` | Wrapped with `withSentryConfig` |
+
+### Privacy design
+
+- User context: `Sentry.setUser({ id: session.syncId, segment: 'admin' | 'user' })` — `sync_id` only, no email or PII
+- Cookie values are fully redacted in `beforeSend` (keys kept, values replaced with `[REDACTED]`)
+- Session replay is disabled (`replaysSessionSampleRate: 0`) — privacy concern for under-18 users
+- `NEXT_REDIRECT` and `NEXT_NOT_FOUND` control-flow errors are dropped before sending
+- HTTP 401/403/404/429 responses are dropped on server and edge
+
+### Required env vars
+
+```
+NEXT_PUBLIC_SENTRY_DSN=   # browser-side DSN
+SENTRY_DSN=               # server/edge DSN (same value)
+SENTRY_ENVIRONMENT=       # e.g. development / production
+```
+
+Optional (enables source map upload on build):
+
+```
+SENTRY_AUTH_TOKEN=        # Sentry → Settings → Auth Tokens
+SENTRY_ORG=at-ease-tutoring
+SENTRY_PROJECT=prod
+```
+
+### Constraint — `global-error.tsx`
+
+`app/global-error.tsx` must never import from `@sentry/nextjs`. Importing the Sentry server SDK pulls in `@prisma/instrumentation` (Node.js-only) into the edge bundle and crashes every edge-rendered route. The current file is a plain error boundary with no Sentry dependency.
 
 ---
 

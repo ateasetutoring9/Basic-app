@@ -601,15 +601,55 @@ app/(app)/settings/
 
 ## Error Monitoring (Sentry)
 
-**Sentry is removed from the `main` branch.** The `@sentry/nextjs` package remains in `package.json` but is not configured — no `instrumentation.ts`, no `withSentryConfig` in `next.config.mjs`, and `global-error.tsx` does not import from Sentry.
+**Sentry is configured on `feature-testing` only — not on `main`.** `@sentry/nextjs` v10 is incompatible with `@cloudflare/next-on-pages@1`: the webpack plugin produces a fatal "A duplicated identifier has been detected in the same function file" build error. Do not merge the Sentry config to `main` until the build adapter is migrated to [OpenNext](https://opennext.js.org/).
 
-**Why it was removed:** `@sentry/nextjs` v10 is incompatible with `@cloudflare/next-on-pages@1`. The Sentry webpack plugin injects code that the adapter cannot process, producing a fatal "A duplicated identifier has been detected in the same function file" build error. Three separate attempts to work around it (disabling auto-instrumentation flags, removing `withSentryConfig`, etc.) all failed.
+**Org:** `at-ease-tutoring` · **Project:** `prod` · **Region:** EU (`ingest.de.sentry.io`)
 
-**Where the config lives:** The full Sentry configuration is preserved on the `develop` branch for future use. Org: `at-ease-tutoring`, project: `prod`, EU ingest region (`ingest.de.sentry.io`).
+### Files
 
-**Re-integrating Sentry:** Cloudflare now recommends [OpenNext](https://opennext.js.org/) over `@cloudflare/next-on-pages`. Migrating the adapter is the recommended path to unblock Sentry. Do not attempt to re-add Sentry to `main` while `@cloudflare/next-on-pages` is the build adapter.
+| File | Purpose |
+|---|---|
+| `instrumentation-client.ts` | Browser-side `Sentry.init()`; exports `onRouterTransitionStart`; tunnel set to `/monitoring` |
+| `sentry.server.config.ts` | Node.js runtime `Sentry.init()`; `beforeSend` scrubbing + 4xx/redirect filtering |
+| `sentry.edge.config.ts` | Edge runtime `Sentry.init()`; same scrubbing, no Node-only APIs |
+| `instrumentation.ts` | `register()` dynamically imports the correct config per `NEXT_RUNTIME`; exports `onRequestError` |
+| `lib/sentry/scrub.ts` | `scrubObject()` — recursively redacts password, token, cookie, session, apikey fields |
+| `app/api/monitoring/route.ts` | Tunnel proxy — forwards browser events via the app domain to bypass ad blockers |
+| `app/api/sentry-test/route.ts` | Throws a test error on `GET` — **remove or gate before public launch** |
+| `next.config.mjs` | Wrapped with `withSentryConfig` (`silent`, `widenClientFileUpload`, `hideSourceMaps`) |
+| `app/(app)/layout.tsx` | Calls `Sentry.setUser({ id: session.syncId, segment: 'admin' \| 'user' })` after JWT verification |
 
-**`global-error.tsx` constraint:** `app/global-error.tsx` must never import from `@sentry/nextjs` server SDK. Doing so pulls in `@prisma/instrumentation` (which uses dynamic `require`) into the edge bundle, crashing every edge-rendered route across the whole app. The current `global-error.tsx` is a plain error boundary with no Sentry dependency.
+### Privacy design
+
+- **User identity:** `sync_id` only — never email or any other PII
+- **Cookies:** values fully redacted in `beforeSend`; only keys are kept
+- **Session replay:** disabled (`replaysSessionSampleRate: 0`, `replaysOnErrorSampleRate: 0`) — privacy concern for under-18 users
+- **Control-flow errors dropped:** `NEXT_REDIRECT` and `NEXT_NOT_FOUND` return `null` in `beforeSend`
+- **Expected HTTP codes dropped on server/edge:** 401, 403, 404, 429
+
+### Required env vars
+
+```
+NEXT_PUBLIC_SENTRY_DSN=   # browser-visible DSN (inlined at build time)
+SENTRY_DSN=               # server/edge DSN (same value, not public)
+SENTRY_ENVIRONMENT=       # e.g. development | production
+```
+
+Optional — enables source map upload during `npm run build`:
+
+```
+SENTRY_AUTH_TOKEN=        # Sentry → Settings → Auth Tokens → create with project:releases scope
+SENTRY_ORG=at-ease-tutoring
+SENTRY_PROJECT=prod
+```
+
+### `global-error.tsx` constraint
+
+`app/global-error.tsx` must **never** import from `@sentry/nextjs` server SDK. Doing so pulls in `@prisma/instrumentation` (which uses dynamic `require`) into the edge bundle, crashing every edge-rendered route across the entire app. The current `global-error.tsx` is a plain error boundary with no Sentry dependency.
+
+### Re-integrating Sentry on `main`
+
+Cloudflare now recommends [OpenNext](https://opennext.js.org/) over `@cloudflare/next-on-pages`. Migrating the build adapter is the required prerequisite. Do not attempt to add Sentry to `main` while `@cloudflare/next-on-pages` is in use.
 
 ---
 
