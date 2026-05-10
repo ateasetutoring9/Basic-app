@@ -2,8 +2,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
+import { createServerClient } from "@/lib/supabase/server";
 import { getRecentLoginAttempts } from "./_lib/loaders";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { EmailStatusSection } from "./_components/EmailStatusSection";
 import type { LoginOutcome } from "@/lib/auth/log-login-attempt";
 
 export const runtime = "edge";
@@ -67,6 +69,14 @@ export default async function SecurityPage() {
   const session = token ? await verifyToken(token) : null;
   if (!session) redirect("/login");
 
+  const supabase = createServerClient();
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("email, email_verified_at")
+    .eq("id", session.userId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
   const attempts = await getRecentLoginAttempts(session.userId);
 
   return (
@@ -80,6 +90,12 @@ export default async function SecurityPage() {
           <span aria-hidden="true">/</span>
           <span className="text-fg font-medium">Security</span>
         </nav>
+
+        {/* Email verification status */}
+        <EmailStatusSection
+          email={userRow?.email ?? session.email}
+          isVerified={!!userRow?.email_verified_at}
+        />
 
         <h1 className="text-page-title text-fg mb-1">Recent activity</h1>
         <p className="text-small text-muted mb-8 leading-relaxed">

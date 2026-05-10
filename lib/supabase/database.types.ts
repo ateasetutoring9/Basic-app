@@ -16,6 +16,9 @@ export interface Database {
           email: string;
           password_hash: string;
           email_verified_at: string | null;
+          email_verification_token: string | null;
+          email_verification_expires_at: string | null;
+          email_verification_sent_at: string | null;
           password_reset_token: string | null;
           password_reset_expires_at: string | null;
           password_changed_at: string | null;
@@ -33,6 +36,9 @@ export interface Database {
           email: string;
           password_hash: string;
           email_verified_at?: string | null;
+          email_verification_token?: string | null;
+          email_verification_expires_at?: string | null;
+          email_verification_sent_at?: string | null;
           password_reset_token?: string | null;
           password_reset_expires_at?: string | null;
           password_changed_at?: string | null;
@@ -50,6 +56,9 @@ export interface Database {
           email?: string;
           password_hash?: string;
           email_verified_at?: string | null;
+          email_verification_token?: string | null;
+          email_verification_expires_at?: string | null;
+          email_verification_sent_at?: string | null;
           password_reset_token?: string | null;
           password_reset_expires_at?: string | null;
           password_changed_at?: string | null;

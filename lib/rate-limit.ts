@@ -27,6 +27,22 @@ export const resetPasswordLimiter = new Ratelimit({
   prefix: "rl:reset:ip",
 });
 
+// 10 verify-email attempts per IP per 15 minutes
+export const verifyEmailLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, "15 m"),
+  analytics: true,
+  prefix: "rl:verify-email",
+});
+
+// 3 resend-verification requests per user per hour (keyed by sync_id)
+export const resendVerificationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, "1 h"),
+  analytics: true,
+  prefix: "rl:resend-verification",
+});
+
 // 20 login attempts per IP per 15 minutes — intentionally looser than the
 // per-account lockout (5 attempts) to accommodate shared IPs (schools, public wifi).
 export const loginLimiter = new Ratelimit({
