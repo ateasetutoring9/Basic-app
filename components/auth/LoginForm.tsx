@@ -16,17 +16,23 @@ export function LoginForm({ resetSuccess }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setLocked(false);
     setLoading(true);
 
-    const { error: authError } = await login(email, password);
+    const { error: authError, errorCode } = await login(email, password);
 
     if (authError) {
-      setError(authError);
+      if (errorCode === "account_locked") {
+        setLocked(true);
+      } else {
+        setError(authError);
+      }
       setLoading(false);
       return;
     }
@@ -74,7 +80,20 @@ export function LoginForm({ resetSuccess }: LoginFormProps) {
           </div>
         </div>
 
-        {error && (
+        {locked && (
+          <div role="alert" className="text-small bg-error-soft border border-error rounded-md px-4 py-3 flex flex-col gap-1.5">
+            <p className="font-medium text-error">Account temporarily locked</p>
+            <p className="text-muted">
+              Too many failed sign-in attempts. Wait 30 minutes and try again, or{" "}
+              <Link href="/forgot-password" className="text-accent underline hover:no-underline">
+                reset your password
+              </Link>{" "}
+              to regain access immediately.
+            </p>
+          </div>
+        )}
+
+        {error && !locked && (
           <p role="alert" className="text-small text-error bg-error-soft border border-error rounded-md px-4 py-3">
             {error}
           </p>

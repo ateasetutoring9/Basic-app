@@ -19,7 +19,10 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 }
 
-export async function login(email: string, password: string): Promise<{ error?: string }> {
+export async function login(
+  email: string,
+  password: string
+): Promise<{ error?: string; errorCode?: string }> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,7 +31,7 @@ export async function login(email: string, password: string): Promise<{ error?: 
   });
   if (res.ok) return {};
   const body = await res.json().catch(() => ({}));
-  return { error: body.error ?? "Login failed" };
+  return { error: body.error ?? "Login failed", errorCode: body.errorCode };
 }
 
 export async function signup(email: string, password: string, displayName?: string): Promise<{ error?: string }> {

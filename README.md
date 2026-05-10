@@ -60,10 +60,11 @@ app/
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
 | `lib/auth/jwt.ts` | `signToken()`, `verifyToken()` — verifyToken also checks `password_changed_at` to invalidate pre-reset sessions |
 | `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
+| `lib/auth/policy.ts` | Lockout constants: `MAX_FAILED_LOGIN_ATTEMPTS`, `LOCKOUT_DURATION_MINUTES`, `FAILED_ATTEMPT_RESET_WINDOW_HOURS` |
 | `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
 | `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
 | `lib/request-meta.ts` | Extracts `ipAddress` and `userAgent` from any `Request` object |
-| `lib/rate-limit.ts` | Upstash sliding-window rate limiters for forgot-password (IP + email) and reset-password (IP) |
+| `lib/rate-limit.ts` | Upstash sliding-window rate limiters: login (IP), forgot-password (IP + email), reset-password (IP) |
 | `lib/email/client.ts` | Resend SDK singleton |
 | `lib/email/send.ts` | `sendEmail()` — fire-and-forget wrapper that never throws |
 | `lib/email/templates/password-reset.ts` | HTML + plain-text password reset email template |
@@ -320,29 +321,57 @@ Stored in `worksheets.questions` JSONB, validated in `lib/content/schemas.ts`:
 
 ---
 
-## Login Attempt Tracking
+## Login Hardening
 
-Every login attempt (success or failure) is written to the `login_attempts` table.
+The login route (`POST /api/auth/login`) enforces three layers of protection:
 
-**Outcomes logged:**
+### 1. IP rate limiting
+20 requests per IP per 15 minutes (`loginLimiter` in `lib/rate-limit.ts`). Degrades gracefully if Upstash Redis is unavailable — logs a warning and allows the request through so a Redis outage never breaks login.
+
+### 2. Per-account lockout
+Constants in `lib/auth/policy.ts`:
+
+| Constant | Value |
+|---|---|
+| `MAX_FAILED_LOGIN_ATTEMPTS` | 5 |
+| `LOCKOUT_DURATION_MINUTES` | 30 |
+| `FAILED_ATTEMPT_RESET_WINDOW_HOURS` | 1 |
+
+After 5 consecutive wrong passwords **within the last hour**, `locked_until` is set to `now + 30 minutes`. The lockout check runs **before** `bcrypt.compareSync` so attempts against a locked account don't increment the counter further.
+
+**Reset-window logic:** before incrementing `failed_login_attempts`, the route checks the timestamp of the last failure row. If it is older than 1 hour, the counter resets to 0 — preventing failures from weeks ago from contributing to a new lockout.
+
+**Lockout UX:** the API returns `{ errorCode: "account_locked" }`. `LoginForm` renders a distinct banner: *"Account temporarily locked — wait 30 minutes or [reset your password]."* The reset link goes to `/forgot-password`.
+
+**Password reset clears lockout:** `POST /api/auth/reset-password` sets `failed_login_attempts = 0` and `locked_until = null` in the same DB update as the new password hash, so a locked user can regain access immediately.
+
+### 3. Attempt logging
+Every terminal path writes to `login_attempts` via `lib/auth/log-login-attempt.ts`.
 
 | Outcome | When |
 |---|---|
-| `success` | Password correct, account not locked |
+| `success` | Password correct, not locked |
 | `wrong_password` | User found, password incorrect |
 | `user_not_found` | No account for that email |
-| `account_locked` | Password correct but `locked_until` is in the future |
-| `email_not_verified` | Reserved — not yet triggered |
-| `rate_limited` | Reserved — not yet triggered |
-| `error` | Reserved — unhandled exception path |
+| `account_locked` | Locked — checked before bcrypt |
+| `rate_limited` | IP rate limit exceeded |
+| `email_not_verified` | Reserved — email verification not yet built |
+| `error` | Unhandled exception |
 
 **Key rules:**
-- Logging is fire-and-forget (`void logLoginAttempt(...)`) — a DB write failure never blocks or fails the login response
+- Logging is fire-and-forget (`void logLoginAttempt(...)`) — never blocks the login response
 - The helper never accepts a password parameter
 - `user_agent` is capped at 500 chars before insert
 - IP is read from `x-forwarded-for` → `x-real-ip` → `0.0.0.0`
+- When email is not found, `bcrypt.compareSync` runs against a constant dummy hash to equalise response timing and prevent account enumeration
 
 **Recent activity page (`/settings/security`):** shows the user's own last 20 attempts. IP is masked to two octets (e.g. `203.0.x.x`). User-agent is parsed into OS + browser family inline — no library.
+
+---
+
+## Email Verification
+
+**Not yet implemented.** The `users.email_verified_at` column exists and the `email_not_verified` outcome type is defined, but no verification email is sent on signup and the branch in the login route is commented out (`// TODO: un-gate when email verification ships`). Every account currently has `email_verified_at = null` and can sign in without restriction.
 
 ---
 

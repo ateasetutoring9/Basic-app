@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import * as Sentry from "@sentry/nextjs";
 import { createServerClient } from "@/lib/supabase/server";
 import { signToken, COOKIE_NAME, COOKIE_OPTIONS } from "@/lib/auth/jwt";
 import { logLoginAttempt } from "@/lib/auth/log-login-attempt";
@@ -54,20 +53,25 @@ export async function POST(req: Request) {
 
     const normalizedEmail = parsed.email.toLowerCase().trim();
 
-    // 2. Rate limit by IP
-    const { success: ipOk } = await loginLimiter.limit(meta.ipAddress);
-    if (!ipOk) {
-      void logLoginAttempt({
-        emailAttempted: normalizedEmail,
-        outcome: "rate_limited",
-        userId: null,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-      });
-      return NextResponse.json(
-        { ok: false, error: "Too many attempts. Try again in a few minutes." },
-        { status: 429 }
-      );
+    // 2. Rate limit by IP — degrade gracefully if Redis is unavailable
+    try {
+      const { success: ipOk } = await loginLimiter.limit(meta.ipAddress);
+      if (!ipOk) {
+        void logLoginAttempt({
+          emailAttempted: normalizedEmail,
+          outcome: "rate_limited",
+          userId: null,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+        });
+        return NextResponse.json(
+          { ok: false, error: "Too many attempts. Try again in a few minutes." },
+          { status: 429 }
+        );
+      }
+    } catch {
+      // Redis unavailable — allow the request through; per-account lockout still protects us
+      console.warn("[login] rate limiter unavailable, skipping");
     }
 
     // 3. Look up user
@@ -82,7 +86,7 @@ export async function POST(req: Request) {
 
     // 4. User not found — run dummy bcrypt to equalise response timing
     if (!user) {
-      await bcrypt.compare(parsed.password, DUMMY_BCRYPT_HASH);
+      bcrypt.compareSync(parsed.password, DUMMY_BCRYPT_HASH);
       void logLoginAttempt({
         emailAttempted: normalizedEmail,
         outcome: "user_not_found",
@@ -107,10 +111,8 @@ export async function POST(req: Request) {
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       });
-      // Return the same message as wrong password — do not reveal lockout status,
-      // which would let an attacker enumerate locked vs unlocked accounts.
       return NextResponse.json(
-        { ok: false, error: "Invalid credentials" },
+        { ok: false, errorCode: "account_locked", error: "Account temporarily locked." },
         { status: 401 }
       );
     }
@@ -123,7 +125,7 @@ export async function POST(req: Request) {
     // }
 
     // 7. Password comparison
-    const valid = await bcrypt.compare(parsed.password, user.password_hash);
+    const valid = bcrypt.compareSync(parsed.password, user.password_hash);
 
     if (!valid) {
       // Determine the current effective failed-attempt count.
@@ -214,7 +216,7 @@ export async function POST(req: Request) {
 
     return res;
   } catch (err) {
-    Sentry.captureException(err);
+    console.error("[login] unhandled error:", err);
     void logLoginAttempt({
       emailAttempted: "",
       outcome: "error",

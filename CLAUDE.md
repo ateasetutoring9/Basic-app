@@ -332,8 +332,18 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
 - **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
 - **Signup** — `POST /api/auth/signup` accepts `{ email, password, displayName? }`. `displayName` is stored as `users.display_name`; it is optional so existing integrations without the field still work. The signup form (`components/auth/SignupForm.tsx`) validates name format (letters, spaces, hyphens, apostrophes, 2–100 chars) and email format client-side before submitting.
+- **Login hardening** — `POST /api/auth/login` enforces three layers of protection in order:
+  1. **IP rate limit** (`loginLimiter` — 20 req / 15 min, Upstash sliding window). Degrades gracefully if Redis is unavailable — logs a warning and allows the request through so a Redis outage never breaks login.
+  2. **Per-account lockout** — after `MAX_FAILED_LOGIN_ATTEMPTS` (5) consecutive wrong passwords within `FAILED_ATTEMPT_RESET_WINDOW_HOURS` (1 h), sets `locked_until = now + LOCKOUT_DURATION_MINUTES` (30 min). Constants live in `lib/auth/policy.ts`. Lockout is checked **before** `bcrypt.compareSync` so a locked account's attempts never increment the counter further.
+  3. **Reset-window logic** — before incrementing `failed_login_attempts`, the route queries the last failure row for that user. If it is older than 1 hour, the counter resets to 0 first, preventing stale failures from contributing to new lockouts.
+  - **Dummy bcrypt** — when the email is not found, `bcrypt.compareSync` runs against a constant dummy hash to equalise response timing and prevent account enumeration.
+  - **Lockout UX** — the API returns `{ errorCode: "account_locked" }` (401). `LoginForm` detects this and renders a distinct banner: "Account temporarily locked — wait 30 minutes or reset your password." The reset link goes to `/forgot-password`.
+  - **Password reset clears lockout** — `POST /api/auth/reset-password` clears `failed_login_attempts = 0` and `locked_until = null` in the same DB update as the new password hash, so a locked user can regain access immediately via password reset.
+  - **bcrypt in Edge Runtime** — use `bcrypt.compareSync` (synchronous). The async `bcrypt.compare` uses `setImmediate` which is not available in the Edge Runtime.
+  - **Do not import `@sentry/nextjs` in edge API routes** — it uses Node.js APIs not available in the Edge Runtime. Errors in edge routes are captured automatically via `onRequestError` in `instrumentation.ts`.
 - **Login attempt logging** — `lib/auth/log-login-attempt.ts` writes to `login_attempts` at every terminal path in the login route. Called with `void` so it never blocks the response. The login route separates `user_not_found` (no user row) from `wrong_password` (user found, bad password) so each gets the correct outcome in the log.
 - **`lib/request-meta.ts`** — call `getRequestMeta(request)` to extract `{ ipAddress, userAgent }` from any `Request`. Used by the login route; reuse for any future auth route that needs to log.
+- **Email verification** — the `users.email_verified_at` column exists and the `email_not_verified` outcome is defined in `LoginOutcome`, but the feature is not yet built. No verification email is sent on signup. The `email_not_verified` branch in the login route is commented out with a TODO. Do not set `email_verified_at` manually — wait until the full flow (send email on signup → user clicks link → API sets the column) is implemented.
 - **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
 - **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
 - **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
@@ -354,6 +364,7 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - The forgot-password route hashes a dummy token and does the DB lookup regardless of whether the email exists, so response time is constant.
 
 **Rate limits (`lib/rate-limit.ts` — Upstash sliding window):**
+- Login by IP: 20 req / 15 min (degrades gracefully if Redis unavailable)
 - Forgot-password by IP: 10 req / 1 hour
 - Forgot-password by email: 3 req / 1 hour
 - Reset-password by IP: 5 req / 15 min
