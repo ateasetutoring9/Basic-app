@@ -28,7 +28,10 @@
       "Bash(git commit -m ' *)",
       "Bash(npx @sentry/wizard@latest -i nextjs --saas --org at-ease-tutoring --project prod)",
       "Bash(node -e \"const p = require\\('./node_modules/@sentry/nextjs/package.json'\\); console.log\\(p.version\\)\")",
-      "Bash(node -e \"try { const s = require\\('@sentry/core'\\); console.log\\(typeof s.ErrorEvent\\); } catch\\(e\\) { console.log\\('not found:', e.message\\); }\")"
+      "Bash(node -e \"try { const s = require\\('@sentry/core'\\); console.log\\(typeof s.ErrorEvent\\); } catch\\(e\\) { console.log\\('not found:', e.message\\); }\")",
+      "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\harsh\\\\project\\\\Basic app\\\\lib\\\\email\\\\templates\")",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"done\")"
     ]
   }
 }
