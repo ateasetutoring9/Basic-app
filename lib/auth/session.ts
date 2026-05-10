@@ -31,12 +31,12 @@ export async function login(email: string, password: string): Promise<{ error?: 
   return { error: body.error ?? "Login failed" };
 }
 
-export async function signup(email: string, password: string): Promise<{ error?: string }> {
+export async function signup(email: string, password: string, displayName?: string): Promise<{ error?: string }> {
   const res = await fetch("/api/auth/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, displayName }),
   });
   if (res.ok) return {};
   const body = await res.json().catch(() => ({}));

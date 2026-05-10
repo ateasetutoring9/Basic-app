@@ -6,10 +6,10 @@ import { signToken, COOKIE_NAME, COOKIE_OPTIONS } from "@/lib/auth/jwt";
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
-  let email: string, password: string;
+  let email: string, password: string, displayName: string | undefined;
 
   try {
-    ({ email, password } = await req.json());
+    ({ email, password, displayName } = await req.json());
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -44,7 +44,11 @@ export async function POST(req: Request) {
 
   const { data: user, error: insertError } = await supabase
     .from("users")
-    .insert({ email, password_hash })
+    .insert({
+      email,
+      password_hash,
+      ...(displayName ? { display_name: displayName } : {}),
+    })
     .select("id, sync_id, email, is_admin")
     .single();
 

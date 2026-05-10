@@ -134,14 +134,16 @@ app/(app)/dashboard/
 │   ├── types.ts                 InProgressTopic, RecommendedTopic, DashboardSubject, RecentAttempt
 │   └── loaders.ts               Supabase data loaders (one per section)
 └── _components/
-    ├── Greeting.tsx             Instant render — time-based greeting, no DB call
+    ├── Greeting.tsx             Time-based greeting; name resolved from users.display_name
     ├── ContinueLearning.tsx     In-progress worksheets; onboarding empty state
     ├── Recommended.tsx          Latest published topics; hidden if empty
     ├── YourSubjects.tsx         All active subjects with topic counts
     └── RecentActivity.tsx       Last 3 attempts; hidden if empty
 ```
 
-**Streaming:** Each section is wrapped in `<Suspense>` with a skeleton fallback. The greeting renders immediately from the JWT; sections stream in as their DB queries resolve.
+**Greeting name resolution:** `page.tsx` queries `users.display_name` for the logged-in user after verifying the JWT. Falls back to the email prefix for accounts created before the name field existed.
+
+**Streaming:** Each section is wrapped in `<Suspense>` with a skeleton fallback. Sections stream in as their DB queries resolve.
 
 **Error handling:** Each section catches its own errors and shows an inline message — no section failure crashes the page.
 
@@ -150,6 +152,7 @@ app/(app)/dashboard/
 - `getRecommendedTopics` returns the latest published topics — no year-level curation yet
 - Greeting shows "All your subjects" — will show "Year X · Subject 1, Subject 2" once user model stores year and subject preferences
 - Time-of-day greeting uses UTC+10 offset (AEST) — no per-user timezone support yet
+- Name format is validated client-side only in the signup form; the API does not re-validate the format
 
 ---
 
@@ -420,6 +423,8 @@ Users who forget their password use `/forgot-password` → `/reset-password?toke
 2. `lib/auth/requireAdmin.ts` — blocks direct API calls (curl, fetch, etc.)
 
 Login and signup responses expose only `syncId`, `email`, and `isAdmin` — the internal bigserial `id` is never returned to clients.
+
+**Signup form** collects name, email, and password. Name is validated client-side (letters, spaces, hyphens, apostrophes, 2–100 chars) and stored as `users.display_name`. The field is optional in the API so existing integrations without it remain compatible.
 
 ---
 

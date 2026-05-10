@@ -59,6 +59,7 @@ Registered students and admins.
 | Column | Notes |
 |---|---|
 | `email` | `citext` — case-insensitive unique |
+| `display_name` | user's name as entered at signup; shown in the dashboard greeting; nullable for accounts created before this field existed |
 | `password_hash` | bcrypt/argon2 hash; API sets this, never plaintext |
 | `email_verified_at` | null until email confirmed |
 | `password_reset_token` | SHA-256 hex hash of the raw token; raw token is sent in the email URL only |
@@ -330,6 +331,7 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
 - **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
 - **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
+- **Signup** — `POST /api/auth/signup` accepts `{ email, password, displayName? }`. `displayName` is stored as `users.display_name`; it is optional so existing integrations without the field still work. The signup form (`components/auth/SignupForm.tsx`) validates name format (letters, spaces, hyphens, apostrophes, 2–100 chars) and email format client-side before submitting.
 - **Login attempt logging** — `lib/auth/log-login-attempt.ts` writes to `login_attempts` at every terminal path in the login route. Called with `void` so it never blocks the response. The login route separates `user_not_found` (no user row) from `wrong_password` (user found, bad password) so each gets the correct outcome in the log.
 - **`lib/request-meta.ts`** — call `getRequestMeta(request)` to extract `{ ipAddress, userAgent }` from any `Request`. Used by the login route; reuse for any future auth route that needs to log.
 - **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
@@ -444,6 +446,8 @@ The public landing page (`/`) is a fully static server-rendered page. `app/(publ
 
 The student dashboard at `app/(app)/dashboard/page.tsx` is a thin async server component that reads the JWT and composes Suspense-wrapped section components. All data fetching is in `app/(app)/dashboard/_lib/loaders.ts`.
 
+**Greeting name resolution:** The page queries `users.display_name` for the logged-in user immediately after verifying the JWT. If `display_name` is null (accounts created before the field existed), it falls back to the email prefix (the part before `@`).
+
 **Loader pattern** — each loader follows the same shape:
 1. Query attempts/topics/subjects/years in sequential Supabase calls (PostgREST joins are used where safe; worksheets are always fetched by `topic_id` separately to avoid broken FK joins).
 2. Build `Map` lookups to join in application code.
@@ -463,6 +467,7 @@ The student dashboard at `app/(app)/dashboard/page.tsx` is a thin async server c
 - No subject selection on the user model — "Your subjects" shows all subjects.
 - Greeting shows "All your subjects" placeholder until user model gains `year_id` and subject preferences.
 - Time-of-day greeting uses UTC+10 offset — no per-user timezone.
+- `display_name` is not validated server-side in the signup route beyond being a non-empty string — the format check (letters/spaces/hyphens/apostrophes) is client-side only.
 
 ---
 

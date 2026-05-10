@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { verifyToken, COOKIE_NAME } from "@/lib/auth/jwt";
+import { createServerClient } from "@/lib/supabase/server";
 import { Greeting } from "./_components/Greeting";
 import {
   ContinueLearning,
@@ -21,18 +22,20 @@ export const metadata: Metadata = {
   title: "Dashboard — At Ease Learning",
 };
 
-function getFirstName(email: string): string {
-  const prefix = email.split("@")[0];
-  const name = prefix.split(/[._+]/)[0];
-  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-}
-
 export default async function DashboardPage() {
   // Layout already verified the JWT and redirected if invalid — safe to assert non-null.
   const token = (await cookies()).get(COOKIE_NAME)?.value ?? "";
   const session = (await verifyToken(token))!;
 
-  const firstName = getFirstName(session.email);
+  const supabase = createServerClient();
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("display_name")
+    .eq("id", session.userId)
+    .maybeSingle();
+
+  // Use stored name; fall back to the email prefix for accounts created before this field existed
+  const firstName = userRow?.display_name ?? session.email.split("@")[0];
 
   return (
     <main>
