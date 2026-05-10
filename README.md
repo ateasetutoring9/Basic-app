@@ -60,7 +60,8 @@ app/
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
 | `lib/auth/jwt.ts` | `signToken()`, `verifyToken()` — verifyToken also checks `password_changed_at` to invalidate pre-reset sessions |
 | `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
-| `lib/auth/policy.ts` | Lockout constants: `MAX_FAILED_LOGIN_ATTEMPTS`, `LOCKOUT_DURATION_MINUTES`, `FAILED_ATTEMPT_RESET_WINDOW_HOURS` |
+| `lib/auth/policy.ts` | Auth constants: lockout thresholds + email verification expiry and resend cooldown |
+| `lib/auth/tokens.ts` | Edge-compatible `generateToken()` / `hashToken()` via Web Crypto — used by password reset and email verification |
 | `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
 | `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
 | `lib/request-meta.ts` | Extracts `ipAddress` and `userAgent` from any `Request` object |
@@ -355,7 +356,7 @@ Every terminal path writes to `login_attempts` via `lib/auth/log-login-attempt.t
 | `user_not_found` | No account for that email |
 | `account_locked` | Locked — checked before bcrypt |
 | `rate_limited` | IP rate limit exceeded |
-| `email_not_verified` | Reserved — email verification not yet built |
+| `email_not_verified` | Reserved — login is soft-block; this outcome is not yet triggered |
 | `error` | Unhandled exception |
 
 **Key rules:**
@@ -371,7 +372,42 @@ Every terminal path writes to `login_attempts` via `lib/auth/log-login-attempt.t
 
 ## Email Verification
 
-**Not yet implemented.** The `users.email_verified_at` column exists and the `email_not_verified` outcome type is defined, but no verification email is sent on signup and the branch in the login route is commented out (`// TODO: un-gate when email verification ships`). Every account currently has `email_verified_at = null` and can sign in without restriction.
+**Soft-block model** — unverified users can still log in and access all features. Verification is encouraged through a persistent banner, not enforced at login.
+
+### Flow
+
+1. User signs up → verification email sent fire-and-forget (never blocks signup response).
+2. User clicks link → `GET /verify-email?token=<raw>` → page POSTs to `POST /api/auth/verify-email`.
+3. On success: `email_verified_at` is set; banner disappears on next page load.
+4. If email is missed: banner shows "Resend email" → `POST /api/auth/resend-verification`.
+
+### API routes
+
+| Route | Purpose |
+|---|---|
+| `POST /api/auth/verify-email` | Consume token, set `email_verified_at`; detects already-verified via session |
+| `POST /api/auth/resend-verification` | Session-gated resend with 5-min server-side cooldown |
+
+### Token security (same pattern as password reset)
+- Raw token in URL, SHA-256 hex hash in `users.email_verification_token` — never stored raw.
+- 24-hour expiry (`EMAIL_VERIFICATION_EXPIRY_HOURS` in `lib/auth/policy.ts`).
+- Shared utilities in `lib/auth/tokens.ts` — `generateToken()` and `hashToken()`.
+
+### Rate limits
+- Verify: 10 req / 15 min per IP (`verifyEmailLimiter`)
+- Resend: 3 req / 1 hr per user sync_id (`resendVerificationLimiter`)
+
+Both degrade gracefully if Redis is unavailable.
+
+### UI
+- `app/(auth)/verify-email/page.tsx` — loading / success / error states; CTA adapts based on whether the user has an active session.
+- `app/(app)/_components/EmailVerificationBanner.tsx` — full-width strip above the nav for unverified users; dismissable per page load; inline resend button with feedback states.
+- `app/(app)/settings/security` — email address + verified/not-verified pill + resend button.
+
+### Design decisions
+- Login **does not** enforce `email_verified_at`. The `email_not_verified` log outcome is reserved for a future hard-block decision.
+- Email send failures at signup are swallowed — the banner + resend is the recovery path.
+- Verify endpoint does not issue a JWT — users who verify on a different device must sign in manually.
 
 ---
 

@@ -343,7 +343,7 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
   - **Do not import `@sentry/nextjs` in edge API routes** — it uses Node.js APIs not available in the Edge Runtime. Errors in edge routes are captured automatically via `onRequestError` in `instrumentation.ts`.
 - **Login attempt logging** — `lib/auth/log-login-attempt.ts` writes to `login_attempts` at every terminal path in the login route. Called with `void` so it never blocks the response. The login route separates `user_not_found` (no user row) from `wrong_password` (user found, bad password) so each gets the correct outcome in the log.
 - **`lib/request-meta.ts`** — call `getRequestMeta(request)` to extract `{ ipAddress, userAgent }` from any `Request`. Used by the login route; reuse for any future auth route that needs to log.
-- **Email verification** — the `users.email_verified_at` column exists and the `email_not_verified` outcome is defined in `LoginOutcome`, but the feature is not yet built. No verification email is sent on signup. The `email_not_verified` branch in the login route is commented out with a TODO. Do not set `email_verified_at` manually — wait until the full flow (send email on signup → user clicks link → API sets the column) is implemented.
+- **Email verification** — soft-block model. Unverified users can still log in and use the app; they see a persistent banner prompting them to verify. See the **Email Verification** section below for full details.
 - **App layout** (`app/(app)/layout.tsx`) — server component that verifies the JWT and redirects to `/login` if the session is missing or invalid. This is the primary auth gate for all app-zone routes.
 - **Admin layout** (`app/(app)/admin/layout.tsx`) — additionally checks `isAdmin`; redirects to `/dashboard` if the user is authenticated but not an admin. Individual admin pages need no extra check.
 - **Nav** — `NavAuth` calls `getSession()` on every pathname change (via `usePathname` in its `useEffect` dep array) so the admin cog appears immediately after login without requiring a hard refresh.
@@ -380,6 +380,50 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 - `app/(auth)/forgot-password/page.tsx` + `components/auth/ForgotPasswordForm.tsx` — email form; transitions to "check your email" in-place after submit without a redirect.
 - `app/(auth)/reset-password/page.tsx` + `components/auth/ResetPasswordForm.tsx` — reads `?token` from searchParams (calls `notFound()` if missing); two password fields with show/hide toggles; client-side match validation before submit.
 - Login page (`app/(auth)/login/page.tsx`) reads `?reset=success` and passes `resetSuccess` to `LoginForm`, which shows a success banner. "Forgot password?" link appears below the password field.
+
+---
+
+## Email Verification
+
+**Soft-block model** — unverified users can log in and use all existing features. Verification is encouraged via a persistent banner, not enforced at login.
+
+### Token pattern (same as password reset)
+- `lib/auth/tokens.ts` — `generateToken()` returns `{ raw, hash }`. Raw token goes in the URL; SHA-256 hex hash is stored in `users.email_verification_token`. Never store the raw token in the DB.
+- Token expiry: `EMAIL_VERIFICATION_EXPIRY_HOURS` (24 h), defined in `lib/auth/policy.ts`.
+- Resend cooldown: `EMAIL_VERIFICATION_RESEND_COOLDOWN_MINUTES` (5 min), enforced server-side via `users.email_verification_sent_at`.
+
+### DB columns (on `users`)
+| Column | Notes |
+|---|---|
+| `email_verified_at` | `null` until verified; set by `POST /api/auth/verify-email` |
+| `email_verification_token` | SHA-256 hex hash of the raw token; cleared on verification |
+| `email_verification_expires_at` | 24-hour expiry |
+| `email_verification_sent_at` | timestamp of last send; used for cooldown enforcement |
+
+### API routes
+- **`POST /api/auth/signup`** — after creating the user and issuing the JWT, generates a token, stores the hash, and sends the verification email fire-and-forget (`void`). Email failures never break signup.
+- **`POST /api/auth/verify-email`** — accepts `{ token }`. Hashes it, looks up the matching user (token match + not expired + not deleted), sets `email_verified_at = now()`, clears token fields. Rate-limited by IP (10 req / 15 min). If the token is invalid but the session user is already verified, returns `{ ok: true, alreadyVerified: true }` instead of an error.
+- **`POST /api/auth/resend-verification`** — session-required. Rate-limited per user sync_id (3 req / 1 hr via Upstash) plus server-side 5-min cooldown via `email_verification_sent_at`. Generates a fresh token and sends a new email.
+
+### UI
+- **`app/(auth)/verify-email/page.tsx`** — client component in the auth zone (inherits card layout). Three states: loading spinner → success (CTA to dashboard or login depending on session) → expired/invalid error. Detects already-verified via `/api/auth/me`.
+- **`app/(app)/_components/EmailVerificationBanner.tsx`** — full-width `bg-accent-soft` strip rendered above `<TopNav>` in `app/(app)/layout.tsx`. Reads `email_verified_at` from DB in the layout server component and passes `isVerified` as a prop. Resend button cycles: idle → Sending… → Email sent / Please wait / Couldn't send → idle (resets after 5 s). Dismiss button hides the banner for the current page session only (no DB write).
+- **`app/(app)/settings/security`** — `EmailStatusSection` shows the user's email address with a "Verified" or "Not verified" pill, plus a resend button for unverified accounts.
+
+### Email template
+`lib/email/templates/email-verification.ts` — `emailVerificationEmail({ verifyUrl, firstName? })`. Subject: `"Verify your email for At Ease Learning"`. Inline styles matching `password-reset.ts` exactly.
+
+### Rate limits (`lib/rate-limit.ts`)
+- `verifyEmailLimiter` — 10 req / 15 min per IP
+- `resendVerificationLimiter` — 3 req / 1 hr per user sync_id
+
+Both limiters degrade gracefully (warn + allow through) if Redis is unavailable.
+
+### Design decisions
+- **Soft block** — the login route does NOT enforce `email_verified_at`. The `email_not_verified` outcome in `login_attempts` is dead code until a future decision to hard-block is made.
+- **Fire-and-forget send** — email failures at signup never fail the signup response. The banner + resend flow is the recovery path.
+- **No auto-login after verify** — the verify endpoint sets `email_verified_at` only; it does not issue or refresh a JWT. If the user clicks the link from a different device, they see a "Sign in" CTA.
+- **Future gate** — when paid features ship (e.g. tutoring booking), those endpoints should check `email_verified_at IS NOT NULL` and return a clear error + resend prompt. Update the banner copy at that point to name the gated feature.
 
 ---
 
