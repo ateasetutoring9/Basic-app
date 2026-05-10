@@ -27,10 +27,11 @@ export const resetPasswordLimiter = new Ratelimit({
   prefix: "rl:reset:ip",
 });
 
-// TODO: Apply loginLimiter to /api/auth/login in a follow-up
-// 10 login attempts per IP per 15 minutes
+// 20 login attempts per IP per 15 minutes — intentionally looser than the
+// per-account lockout (5 attempts) to accommodate shared IPs (schools, public wifi).
 export const loginLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "15 m"),
+  limiter: Ratelimit.slidingWindow(20, "15 m"),
+  analytics: true,
   prefix: "rl:login:ip",
 });

@@ -56,6 +56,8 @@ export async function POST(req: Request) {
 
   const passwordHash = bcrypt.hashSync(parsed.newPassword, 12);
 
+  // Clear lockout state alongside the password update — the user has proven
+  // they own the email address, so any lockout from failed attempts is lifted.
   await supabase
     .from("users")
     .update({
@@ -63,6 +65,8 @@ export async function POST(req: Request) {
       password_reset_token: null,
       password_reset_expires_at: null,
       password_changed_at: now,
+      failed_login_attempts: 0,
+      locked_until: null,
     })
     .eq("id", user.id);
 
