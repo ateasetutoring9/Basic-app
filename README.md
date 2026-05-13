@@ -18,6 +18,7 @@ Free, high-quality education for Year 7–12 students — lectures, worksheets, 
 | Markdown | react-markdown + remark-gfm |
 | Email | Resend — transactional email (password reset) |
 | Rate limiting | Upstash Redis + @upstash/ratelimit (sliding window) |
+| Testing | Vitest (`npm test`) |
 
 ---
 
@@ -63,7 +64,11 @@ app/
 | `lib/auth/policy.ts` | Auth constants: lockout thresholds + email verification expiry and resend cooldown |
 | `lib/auth/tokens.ts` | Edge-compatible `generateToken()` / `hashToken()` via Web Crypto — used by password reset and email verification |
 | `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
-| `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` |
+| `lib/auth/session.ts` | Client helpers: `getSession()`, `login()`, `signup()`, `logout()` — `SessionUser` type includes `permissions: PermissionFlags` |
+| `lib/auth/permissions.types.ts` | `ACTIONS`, `RESOURCES`, `Action`, `Resource`, `Permission`, `PermissionFlags` type definitions |
+| `lib/auth/permissions.ts` | `getUserPermissions`, `userCan`, `requirePermission`, `requirePermissionAndOwnership`, `computePermissionFlags` |
+| `lib/auth/permissions.test.ts` | 13 Vitest tests for all permission helpers |
+| `lib/errors.ts` | `ForbiddenError` — thrown by permission helpers; `status: 403` |
 | `lib/request-meta.ts` | Extracts `ipAddress` and `userAgent` from any `Request` object |
 | `lib/rate-limit.ts` | Upstash sliding-window rate limiters: login (IP), forgot-password (IP + email), reset-password (IP) |
 | `lib/email/client.ts` | Resend SDK singleton |
@@ -408,6 +413,65 @@ Both degrade gracefully if Redis is unavailable.
 - Login **does not** enforce `email_verified_at`. The `email_not_verified` log outcome is reserved for a future hard-block decision.
 - Email send failures at signup are swallowed — the banner + resend is the recovery path.
 - Verify endpoint does not issue a JWT — users who verify on a different device must sign in manually.
+
+---
+
+## RBAC
+
+The RBAC system is built but not yet enforced at the route level. All existing `is_admin` checks remain active. Phase 3 will migrate routes one at a time; Phase 4 retires `is_admin`.
+
+### DB tables
+
+| Table | Purpose |
+|---|---|
+| `roles` | Four system roles: `student`, `tutor`, `admin`, `parent` |
+| `user_roles` | Assignment of a role to a user; one row per user at signup |
+| `permissions` | All valid `(resource, action)` pairs (~36 rows) |
+| `role_permissions` | Many-to-many: which roles have which permissions |
+
+History tables (`user_roles_history`, `role_permissions_history`) capture every insert/update/delete automatically via trigger.
+
+### Code helpers (`lib/auth/permissions.ts`)
+
+| Helper | Returns | Use for |
+|---|---|---|
+| `getUserPermissions(userId)` | `Permission[]` | Internal — called by the others |
+| `userCan(user, action, resource)` | `boolean` | Conditional UI / soft guards |
+| `requirePermission(user, action, resource)` | `void` (throws 403) | API route enforcement |
+| `requirePermissionAndOwnership(user, action, resource, data)` | `void` (throws 403) | Owned-resource enforcement |
+| `computePermissionFlags(user)` | `PermissionFlags` | Session response (`/api/auth/me`) |
+
+`getUserPermissions` is wrapped in `React.cache()` — the DB is hit once per request regardless of how many checks run.
+
+### Session response
+
+`/api/auth/me` now includes `permissions: PermissionFlags`:
+
+```json
+{
+  "permissions": {
+    "canAccessAdmin": false,
+    "canCreateContent": false,
+    "canModerateComments": false,
+    "canManageRoles": false
+  }
+}
+```
+
+These flags are for **UI affordance only** — server routes still call `requirePermission` directly.
+
+### Ownership check
+
+`requirePermissionAndOwnership` looks for `resourceData.user_id`, then `resourceData.created_by_id`. Admin users bypass the ownership check (permission check still applies). Resources with non-standard owner fields must use `requirePermission` and handle ownership separately.
+
+### Testing
+
+```bash
+npm test           # run once
+npm run test:watch # watch mode
+```
+
+13 tests in `lib/auth/permissions.test.ts` cover all helpers and edge cases.
 
 ---
 

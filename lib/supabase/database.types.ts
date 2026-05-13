@@ -161,8 +161,8 @@ export interface Database {
           thumbnail_url: string | null;
           is_published: boolean;
           published_at: string | null;
-          created_by: number | null;
-          updated_by: number | null;
+          created_by_id: number | null;
+          updated_by_id: number | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -176,8 +176,8 @@ export interface Database {
           thumbnail_url?: string | null;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -191,8 +191,8 @@ export interface Database {
           thumbnail_url?: string | null;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -216,8 +216,8 @@ export interface Database {
           content: Json;
           is_published: boolean;
           published_at: string | null;
-          created_by: number | null;
-          updated_by: number | null;
+          created_by_id: number | null;
+          updated_by_id: number | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -231,8 +231,8 @@ export interface Database {
           content: Json;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -246,8 +246,8 @@ export interface Database {
           content?: Json;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -271,8 +271,8 @@ export interface Database {
           difficulty: number;
           is_published: boolean;
           published_at: string | null;
-          created_by: number | null;
-          updated_by: number | null;
+          created_by_id: number | null;
+          updated_by_id: number | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -286,8 +286,8 @@ export interface Database {
           difficulty: number;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -301,8 +301,8 @@ export interface Database {
           difficulty?: number;
           is_published?: boolean;
           published_at?: string | null;
-          created_by?: number | null;
-          updated_by?: number | null;
+          created_by_id?: number | null;
+          updated_by_id?: number | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -510,6 +510,219 @@ export interface Database {
             foreignKeyName: "login_attempts_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      roles: {
+        Row: {
+          id: number;
+          sync_id: string;
+          name: string;
+          display_name: string;
+          description: string | null;
+          is_system_role: boolean;
+          is_default_for_signup: boolean;
+          created_at: string;
+          created_by_id: number | null;
+          updated_at: string;
+          updated_by_id: number | null;
+          deleted_at: string | null;
+          deleted_by_id: number | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          name: string;
+          display_name: string;
+          description?: string | null;
+          is_system_role?: boolean;
+          is_default_for_signup?: boolean;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Update: {
+          id?: number;
+          sync_id?: string;
+          name?: string;
+          display_name?: string;
+          description?: string | null;
+          is_system_role?: boolean;
+          is_default_for_signup?: boolean;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "roles_created_by_id_fkey";
+            columns: ["created_by_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "roles_updated_by_id_fkey";
+            columns: ["updated_by_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "roles_deleted_by_id_fkey";
+            columns: ["deleted_by_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      user_roles: {
+        Row: {
+          id: number;
+          sync_id: string;
+          user_id: number;
+          role_id: number;
+          created_at: string;
+          created_by_id: number | null;
+          updated_at: string;
+          updated_by_id: number | null;
+          deleted_at: string | null;
+          deleted_by_id: number | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          user_id: number;
+          role_id: number;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Update: {
+          id?: number;
+          sync_id?: string;
+          user_id?: number;
+          role_id?: number;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey";
+            columns: ["role_id"];
+            referencedRelation: "roles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      permissions: {
+        Row: {
+          id: number;
+          sync_id: string;
+          resource: string;
+          action: "read" | "create" | "update" | "delete" | "approve" | "moderate" | "assign";
+          description: string | null;
+          created_at: string;
+          created_by_id: number | null;
+          updated_at: string;
+          updated_by_id: number | null;
+          deleted_at: string | null;
+          deleted_by_id: number | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          resource: string;
+          action: "read" | "create" | "update" | "delete" | "approve" | "moderate" | "assign";
+          description?: string | null;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Update: {
+          id?: number;
+          sync_id?: string;
+          resource?: string;
+          action?: "read" | "create" | "update" | "delete" | "approve" | "moderate" | "assign";
+          description?: string | null;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Relationships: [];
+      };
+      role_permissions: {
+        Row: {
+          id: number;
+          sync_id: string;
+          role_id: number;
+          permission_id: number;
+          created_at: string;
+          created_by_id: number | null;
+          updated_at: string;
+          updated_by_id: number | null;
+          deleted_at: string | null;
+          deleted_by_id: number | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          role_id: number;
+          permission_id: number;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Update: {
+          id?: number;
+          sync_id?: string;
+          role_id?: number;
+          permission_id?: number;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_role_id_fkey";
+            columns: ["role_id"];
+            referencedRelation: "roles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey";
+            columns: ["permission_id"];
+            referencedRelation: "permissions";
             referencedColumns: ["id"];
           }
         ];

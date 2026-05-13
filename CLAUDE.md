@@ -41,9 +41,11 @@ Every main table has a `<name>_history` mirror populated by triggers on insert,
 update, and delete. Application code must never write to or modify history
 tables.
 
-**Single authorisation flag**
-`users.is_admin` is the only access-control flag. Admins can access the admin
-dashboard and edit content. There is no role hierarchy beyond `true / false`.
+**Single authorisation flag (transitional)**
+`users.is_admin` is the active enforcement mechanism during RBAC Phase 2 and 3.
+It will be retired in Phase 4 once all routes are migrated to the permission
+helpers. The full RBAC system (roles, permissions, code helpers) is built but
+not yet enforced at the route level — see the **RBAC** section below.
 
 **Passwords never touch logs**
 The API hashes passwords (bcrypt or argon2) before inserting. Plaintext
@@ -69,9 +71,9 @@ Registered students and admins.
 | `locked_until` | set when attempts exceeded |
 | `is_admin` | single auth flag; default false |
 
-Referenced by: `topics.created_by/updated_by`, `lectures.created_by/updated_by`,
-`worksheets.created_by/updated_by`, `attempts.user_id`, `comments.user_id`,
-`reports.reporter_id/resolved_by`.
+Referenced by: `topics.created_by_id/updated_by_id`, `lectures.created_by_id/updated_by_id`,
+`worksheets.created_by_id/updated_by_id`, `attempts.user_id`, `comments.user_id`,
+`reports.reporter_id/resolved_by`, `user_roles.user_id`, `roles.created_by_id`.
 
 ---
 
@@ -112,7 +114,7 @@ A discrete unit of study within a subject.
 | `thumbnail_url` | optional preview image URL |
 | `is_published` | false = draft, hidden from students |
 | `published_at` | timestamp of first publish |
-| `created_by / updated_by` | FK → `users.id`; null if system-inserted |
+| `created_by_id / updated_by_id` | FK → `users.id`; null if system-inserted |
 
 Topics have no `year_level` column — year context comes from
 `topic.subject_id → subjects.year_id`.
@@ -133,7 +135,7 @@ One lecture per topic. `UNIQUE (topic_id)` enforces the 1:1.
 | `content` | JSONB — shape depends on `format` (see below) |
 | `is_published` | independent of topic publish state |
 | `published_at` | timestamp of first publish |
-| `created_by / updated_by` | FK → `users.id` |
+| `created_by_id / updated_by_id` | FK → `users.id` |
 
 **Content shapes by format:**
 - `text` → `{"markdown": "..."}`
@@ -156,7 +158,7 @@ One worksheet per topic. `UNIQUE (topic_id)` enforces the 1:1.
 | `difficulty` | `int` 1–5 (check constraint in DB) |
 | `is_published` | independent of topic publish state |
 | `published_at` | timestamp of first publish |
-| `created_by / updated_by` | FK → `users.id` |
+| `created_by_id / updated_by_id` | FK → `users.id` |
 
 Question structure is defined and validated in the API layer, not the DB.
 
@@ -245,6 +247,59 @@ referenced entity exists before inserting a report.
 
 ---
 
+### `roles`
+Reference table for access-control roles. System roles are seeded by migration and must not be deleted.
+
+| Column | Notes |
+|---|---|
+| `name` | Machine identifier: `student`, `tutor`, `admin`, `parent` |
+| `display_name` | Human label |
+| `is_system_role` | True for the 4 seeded roles; custom roles will be false |
+| `is_default_for_signup` | Exactly one role may be true — `student` |
+| `created_by_id / updated_by_id / deleted_by_id` | FK → `users.id`; null for system-seeded rows |
+
+History: none (reference data, not security-sensitive assignments).
+
+---
+
+### `user_roles`
+Assignment of a role to a user. Each user gets exactly one row at signup (the default-for-signup role). History is tracked in `user_roles_history`.
+
+| Column | Notes |
+|---|---|
+| `user_id` | FK → `users.id` |
+| `role_id` | FK → `roles.id` |
+| `deleted_at` | Soft-delete to revoke a role assignment |
+
+Unique partial index on `(user_id, role_id) WHERE deleted_at IS NULL` prevents duplicate live assignments.
+
+---
+
+### `permissions`
+All valid `(resource, action)` pairs the application knows about. New permissions require a migration.
+
+| Column | Notes |
+|---|---|
+| `resource` | One of the `RESOURCES` array values in `lib/auth/permissions.types.ts` |
+| `action` | One of the `ACTIONS` values: `read`, `create`, `update`, `delete`, `approve`, `moderate`, `assign` |
+| `description` | Human-readable label for the admin UI |
+
+Check constraint: `action IN ('read','create','update','delete','approve','moderate','assign')`.
+Unique constraint: `(resource, action)`.
+
+---
+
+### `role_permissions`
+Many-to-many join between roles and permissions. History is tracked in `role_permissions_history`.
+
+| Column | Notes |
+|---|---|
+| `role_id` | FK → `roles.id` |
+| `permission_id` | FK → `permissions.id` |
+| `deleted_at` | Soft-delete to revoke a permission from a role |
+
+---
+
 ## Content Hierarchy
 
 ```
@@ -329,7 +384,7 @@ Sessions use a JWT stored in an HTTP-only cookie named `session` (7-day expiry, 
 
 - **`lib/auth/jwt.ts`** — `signToken()`, `verifyToken()`, `COOKIE_NAME`, `COOKIE_OPTIONS`. `verifyToken()` additionally queries `users.password_changed_at` and returns `null` if the JWT's `iat` is older than the last password change, immediately invalidating pre-reset sessions.
 - **`lib/auth/session.ts`** — client-side helpers: `getSession()`, `login()`, `signup()`, `logout()` — all call `/api/auth/*`
-- **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Do not trust the JWT's cached `isAdmin` alone.
+- **`/api/auth/me`** — re-fetches `is_admin` from the DB on every call; re-issues the cookie if it has changed. Also computes `PermissionFlags` via `computePermissionFlags()` and includes them in the response as `permissions`. Do not trust the JWT's cached `isAdmin` alone.
 - **Login/signup responses** — return only `syncId`, `email`, and `isAdmin`. The internal bigserial `id` is never sent to clients.
 - **Signup** — `POST /api/auth/signup` accepts `{ email, password, displayName? }`. `displayName` is stored as `users.display_name`; it is optional so existing integrations without the field still work. The signup form (`components/auth/SignupForm.tsx`) validates name format (letters, spaces, hyphens, apostrophes, 2–100 chars) and email format client-side before submitting.
 - **Login hardening** — `POST /api/auth/login` enforces three layers of protection in order:
@@ -424,6 +479,68 @@ Both limiters degrade gracefully (warn + allow through) if Redis is unavailable.
 - **Fire-and-forget send** — email failures at signup never fail the signup response. The banner + resend flow is the recovery path.
 - **No auto-login after verify** — the verify endpoint sets `email_verified_at` only; it does not issue or refresh a JWT. If the user clicks the link from a different device, they see a "Sign in" CTA.
 - **Future gate** — when paid features ship (e.g. tutoring booking), those endpoints should check `email_verified_at IS NOT NULL` and return a clear error + resend prompt. Update the banner copy at that point to name the gated feature.
+
+---
+
+## RBAC (Phase 2 — code helpers built, routes not yet migrated)
+
+The RBAC system lives in `lib/auth/permissions.ts`. It is additive — all existing `is_admin` checks remain active and unchanged. Phase 3 will migrate individual routes to use the helpers; Phase 4 will retire `is_admin`.
+
+### Types (`lib/auth/permissions.types.ts`)
+
+```ts
+ACTIONS  = ['read','create','update','delete','approve','moderate','assign']
+RESOURCES = ['year','subject','topic','lecture','worksheet','attempt',
+             'comment','report','user','role','admin_dashboard','analytics']
+
+type Permission = { resource: Resource; action: Action };
+type PermissionFlags = {
+  canAccessAdmin: boolean;      // read on admin_dashboard
+  canCreateContent: boolean;    // create on topic
+  canModerateComments: boolean; // moderate on comment
+  canManageRoles: boolean;      // assign on role
+};
+```
+
+### Core helpers (`lib/auth/permissions.ts`)
+
+**`getUserPermissions(userId)`** — loads all active `(resource, action)` pairs for a user via three indexed queries (user_roles → role_permissions → permissions). Wrapped in `React.cache()` for per-request deduplication — the DB is hit once per request no matter how many `userCan()` calls appear.
+
+**`userCan(user, action, resource)`** — returns `boolean`. Always use this for conditional UI logic.
+
+**`requirePermission(user, action, resource)`** — throws `ForbiddenError` (403) if the check fails. Use in API route handlers.
+
+**`requirePermissionAndOwnership(user, action, resource, resourceData)`** — permission check + ownership check. Ownership is resolved by looking for `resourceData.user_id` then `resourceData.created_by_id`. Admins (`user.isAdmin === true`) bypass the ownership check and are only subject to the permission check.
+
+**`computePermissionFlags(user)`** — computes the four `PermissionFlags` booleans in parallel. Called by `/api/auth/me` to include pre-computed flags in every session response.
+
+### Error class (`lib/errors.ts`)
+
+`ForbiddenError` extends `Error` with `status: 403` and `name: 'ForbiddenError'`. Thrown by `requirePermission` and `requirePermissionAndOwnership`. The error message (e.g. `"Missing permission: delete on topic"`) is for internal logs/Sentry only — clients receive a generic 403 response.
+
+### Session response
+
+`/api/auth/me` now returns:
+```json
+{ "id": 1, "syncId": "...", "email": "...", "isAdmin": false, "permissions": { "canAccessAdmin": false, "canCreateContent": false, "canModerateComments": false, "canManageRoles": false } }
+```
+
+`lib/auth/session.ts` `SessionUser` type includes `permissions: PermissionFlags`. These flags are for **UI affordance only** — every server action must still call `requirePermission` independently.
+
+### Tests
+
+`lib/auth/permissions.test.ts` — 13 tests covering all helpers. Run with `npm test`. `React.cache()` is mocked as the identity function in the Vitest Node environment (no React renderer); per-request deduplication must be verified manually.
+
+### Ownership convention
+
+The ownership check looks for `user_id` first, then `created_by_id`. Resources that use neither field must call `requirePermission()` directly. When the `scope` column is eventually added to `role_permissions`, `requirePermissionAndOwnership` becomes redundant — the DB handles ownership in the query.
+
+### Adding a new permission
+
+1. Migration: `INSERT INTO permissions (resource, action, description) VALUES (...)`.
+2. Migration: `INSERT INTO role_permissions (role_id, permission_id) ...` for each role that should have it.
+3. If the resource or action string is new, add it to `RESOURCES` or `ACTIONS` in `lib/auth/permissions.types.ts`.
+4. Call `requirePermission()` in the route handler.
 
 ---
 
