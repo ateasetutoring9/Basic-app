@@ -2,11 +2,14 @@
 // /api/auth/login. This module reads that cookie and exposes the user info
 // so components never need to call supabase.auth.* directly.
 
+import type { PermissionFlags } from "@/lib/auth/permissions.types";
+
 export interface SessionUser {
   id: number;
   syncId: string;
   email: string;
   isAdmin: boolean;
+  permissions: PermissionFlags;
 }
 
 export async function getSession(): Promise<SessionUser | null> {

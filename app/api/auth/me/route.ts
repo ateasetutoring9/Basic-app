@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, signToken, COOKIE_NAME, COOKIE_OPTIONS } from "@/lib/auth/jwt";
 import { createServerClient } from "@/lib/supabase/server";
+import { computePermissionFlags } from "@/lib/auth/permissions";
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value;
@@ -29,17 +30,21 @@ export async function GET(req: NextRequest) {
   }
 
   const isAdmin = user.is_admin;
+  const currentPayload = { ...payload, isAdmin };
+
+  const permissions = await computePermissionFlags(currentPayload);
 
   const res = NextResponse.json({
     id: payload.userId,
     syncId: payload.syncId,
     email: payload.email,
     isAdmin,
+    permissions,
   });
 
   // Re-issue the cookie if is_admin has changed so the JWT stays in sync
   if (isAdmin !== payload.isAdmin) {
-    const refreshed = await signToken({ ...payload, isAdmin });
+    const refreshed = await signToken(currentPayload);
     res.cookies.set(COOKIE_NAME, refreshed, COOKIE_OPTIONS);
   }
 

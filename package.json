@@ -9,6 +9,8 @@
     "preview:cf": "npm run build:cf && wrangler pages dev",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "content:check": "tsx --tsconfig tsconfig.json scripts/validate-content.ts"
   },
   "dependencies": {
@@ -40,6 +42,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.6"
   }
 }

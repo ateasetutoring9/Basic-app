@@ -31,7 +31,11 @@
       "Bash(node -e \"try { const s = require\\('@sentry/core'\\); console.log\\(typeof s.ErrorEvent\\); } catch\\(e\\) { console.log\\('not found:', e.message\\); }\")",
       "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\harsh\\\\project\\\\Basic app\\\\lib\\\\email\\\\templates\")",
       "Bash(Out-Null)",
-      "Bash(Write-Output \"done\")"
+      "Bash(Write-Output \"done\")",
+      "Bash(dir \"c:\\\\Users\\\\harsh\\\\project\\\\Basic app\")",
+      "Bash(powershell -command \"Get-Content 'C:\\\\Users\\\\harsh\\\\.claude\\\\projects\\\\c--Users-harsh-project-Basic-app\\\\1e8ba35c-8a68-49d5-9508-369f70936d2f.jsonl' | Select-Object -Last 200\")",
+      "Bash(powershell -command ' *)",
+      "Bash(npx vitest *)"
     ]
   }
 }
