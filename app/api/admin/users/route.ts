@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 
 export const runtime = 'edge';
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "read", "admin_dashboard");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   const supabase = createServerClient();
   const { data, error } = await supabase
@@ -20,8 +28,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "create", "user");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   let email: string, password: string, is_admin: boolean, display_name: string | null;
   try {

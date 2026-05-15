@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = 'edge';
@@ -8,8 +10,15 @@ export const runtime = 'edge';
 type YearUpdate = Database["public"]["Tables"]["years"]["Update"];
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "update", "year");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
+
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });

@@ -60,7 +60,8 @@ app/
 | `app/(app)/layout.tsx` | App-zone layout — JWT verification + TopNav |
 | `app/(app)/admin/layout.tsx` | Admin sidebar + isAdmin check |
 | `lib/auth/jwt.ts` | `signToken()`, `verifyToken()` — verifyToken also checks `password_changed_at` to invalidate pre-reset sessions |
-| `lib/auth/requireAdmin.ts` | Edge-compatible guard — verifies JWT + `isAdmin`; returns 401 Response on failure |
+| `lib/auth/requireAuth.ts` | Edge-compatible auth guard — verifies JWT only; returns `SessionPayload \| Response(401)`. Use as the first step in every API route handler |
+| `lib/auth/requireAdmin.ts` | Legacy guard (verifies JWT + `isAdmin`) — no longer used by route handlers; retained for reference until Phase 4 |
 | `lib/auth/policy.ts` | Auth constants: lockout thresholds + email verification expiry and resend cooldown |
 | `lib/auth/tokens.ts` | Edge-compatible `generateToken()` / `hashToken()` via Web Crypto — used by password reset and email verification |
 | `lib/auth/log-login-attempt.ts` | Fire-and-forget helper that inserts into `login_attempts`; never throws |
@@ -318,7 +319,7 @@ Stored in `worksheets.questions` JSONB, validated in `lib/content/schemas.ts`:
 
 ## Admin
 
-`/admin/**` requires `users.is_admin = true` — the only access-control flag in the system.
+`/admin/**` requires `users.is_admin = true` at the layout level. API routes use RBAC — see below.
 
 | Route | Purpose |
 |---|---|
@@ -416,9 +417,9 @@ Both degrade gracefully if Redis is unavailable.
 
 ---
 
-## RBAC
+## RBAC (Phase 3 complete)
 
-The RBAC system is built but not yet enforced at the route level. All existing `is_admin` checks remain active. Phase 3 will migrate routes one at a time; Phase 4 retires `is_admin`.
+All `/api/admin/*` route handlers have been migrated from `requireAdmin()` to `requireAuth()` + `requirePermission()`. Phase 4 will retire `is_admin` from `requirePermissionAndOwnership` and the admin layout.
 
 ### DB tables
 
@@ -534,7 +535,7 @@ SENTRY_PROJECT=prod
 
 Admin API routes live under `/api/admin/` and use integer `id` for PATCH/DELETE, `sync_id` for GET-by-identity.
 
-**Every `/api/admin/*` handler enforces auth directly** via `requireAdmin()` from `lib/auth/requireAdmin.ts`. It verifies the JWT and checks `isAdmin` — returning 401 if either fails. API routes bypass Next.js layouts, so the layout-level `isAdmin` check alone is not sufficient.
+**Every `/api/admin/*` handler enforces auth directly** using `requireAuth()` (JWT verification → 401) followed by `requirePermission(auth, action, resource)` (RBAC check → 403). API routes bypass Next.js layouts, so the layout-level `isAdmin` check alone is not sufficient. Most admin GET routes gate on `read, admin_dashboard` — a permission only the admin role holds — to avoid false passes from student read permissions. Admin write operations (create/update/delete on topics, lectures, worksheets, years, subjects) use the specific resource permission directly since students lack those actions.
 
 ### Lecture publish flow
 
@@ -587,8 +588,8 @@ Users who forget their password use `/forgot-password` → `/reset-password?toke
 | Authenticated but not admin → `/admin/**` | `/dashboard` |
 
 **Auth is enforced in two places for admin API routes:**
-1. `app/(app)/admin/layout.tsx` — blocks the browser UI for non-admins
-2. `lib/auth/requireAdmin.ts` — blocks direct API calls (curl, fetch, etc.)
+1. `app/(app)/admin/layout.tsx` — blocks the browser UI for non-admins (`isAdmin` check)
+2. `requireAuth()` + `requirePermission()` in each handler — blocks direct API calls (curl, fetch, etc.)
 
 Login and signup responses expose only `syncId`, `email`, and `isAdmin` — the internal bigserial `id` is never returned to clients.
 

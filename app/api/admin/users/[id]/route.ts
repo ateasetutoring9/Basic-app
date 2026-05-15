@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = 'edge';
@@ -9,8 +11,15 @@ export const runtime = 'edge';
 type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "read", "admin_dashboard");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
+
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -52,8 +61,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "read", "admin_dashboard");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);

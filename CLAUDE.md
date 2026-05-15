@@ -42,10 +42,11 @@ update, and delete. Application code must never write to or modify history
 tables.
 
 **Single authorisation flag (transitional)**
-`users.is_admin` is the active enforcement mechanism during RBAC Phase 2 and 3.
-It will be retired in Phase 4 once all routes are migrated to the permission
-helpers. The full RBAC system (roles, permissions, code helpers) is built but
-not yet enforced at the route level — see the **RBAC** section below.
+`users.is_admin` is used in two remaining places during Phase 3 and will be
+retired in Phase 4: (1) `requirePermissionAndOwnership` uses it to bypass the
+ownership check for admins, and (2) `app/(app)/admin/layout.tsx` uses it to
+gate the admin UI. All `/api/admin/*` route handlers have been migrated from
+`requireAdmin()` to `requirePermission()` — see the **RBAC** section below.
 
 **Passwords never touch logs**
 The API hashes passwords (bcrypt or argon2) before inserting. Plaintext
@@ -482,9 +483,9 @@ Both limiters degrade gracefully (warn + allow through) if Redis is unavailable.
 
 ---
 
-## RBAC (Phase 2 — code helpers built, routes not yet migrated)
+## RBAC (Phase 3 complete — all admin routes migrated)
 
-The RBAC system lives in `lib/auth/permissions.ts`. It is additive — all existing `is_admin` checks remain active and unchanged. Phase 3 will migrate individual routes to use the helpers; Phase 4 will retire `is_admin`.
+The RBAC system lives in `lib/auth/permissions.ts`. Phase 3 is complete: all `/api/admin/*` route handlers now use `requireAuth()` + `requirePermission()` instead of `requireAdmin()`. Phase 4 will retire `is_admin` from `requirePermissionAndOwnership` and `app/(app)/admin/layout.tsx`.
 
 ### Types (`lib/auth/permissions.types.ts`)
 
@@ -502,6 +503,16 @@ type PermissionFlags = {
 };
 ```
 
+### Authentication helper (`lib/auth/requireAuth.ts`)
+
+**`requireAuth()`** — reads the session cookie, verifies the JWT via `verifyToken()`, returns `SessionPayload | Response(401)`. Does **not** check `isAdmin`. This is the authentication step used in all API routes. Call it before `requirePermission`.
+
+```ts
+const auth = await requireAuth();
+if (auth instanceof Response) return auth;
+// auth is now SessionPayload — pass it to requirePermission
+```
+
 ### Core helpers (`lib/auth/permissions.ts`)
 
 **`getUserPermissions(userId)`** — loads all active `(resource, action)` pairs for a user via three indexed queries (user_roles → role_permissions → permissions). Wrapped in `React.cache()` for per-request deduplication — the DB is hit once per request no matter how many `userCan()` calls appear.
@@ -513,6 +524,14 @@ type PermissionFlags = {
 **`requirePermissionAndOwnership(user, action, resource, resourceData)`** — permission check + ownership check. Ownership is resolved by looking for `resourceData.user_id` then `resourceData.created_by_id`. Admins (`user.isAdmin === true`) bypass the ownership check and are only subject to the permission check.
 
 **`computePermissionFlags(user)`** — computes the four `PermissionFlags` booleans in parallel. Called by `/api/auth/me` to include pre-computed flags in every session response.
+
+### Permission overlap — the `admin_dashboard: read` gate
+
+Several permissions granted to the student role (e.g. `user: read`, `topic: read`, `year: read`, `subject: read`, `worksheet: read`) are intended for future student-facing API endpoints. Since only admin routes currently check these resource:action combinations, using them as the admin gate would let students through.
+
+Admin GET routes and admin user PATCH/DELETE use `requirePermission(auth, "read", "admin_dashboard")` as the permission check. Only the admin role has `admin_dashboard: read`. Admin write routes where students lack the action (e.g. `topic: create`, `lecture: create`, `user: create`) use the specific resource permission directly.
+
+When student-facing profile or content API routes are added, they will use the specific `user: read`, `topic: read` etc. permissions with ownership scoping. At that point the `admin_dashboard: read` gate for admin routes remains correct and no changes are needed.
 
 ### Error class (`lib/errors.ts`)
 
@@ -551,18 +570,27 @@ The ownership check looks for `user_id` first, then `created_by_id`. Resources t
 
 ### Admin API auth guard
 
-**`lib/auth/requireAdmin.ts`** — every handler in every `/api/admin/*` route must call this as its first line:
+All `/api/admin/*` route handlers use a two-step pattern (Phase 3 — RBAC):
 
 ```ts
-const auth = await requireAdmin();
+const auth = await requireAuth();          // 401 if not authenticated
 if (auth instanceof Response) return auth;
+try {
+  await requirePermission(auth, "read", "admin_dashboard"); // 403 if no permission
+} catch (err) {
+  if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  throw err;
+}
 ```
 
-It reads the session cookie, verifies the JWT, and checks `isAdmin`. Returns a `401 Response` on any failure. The `auth` object carries `{ userId, syncId, email }` for use within the handler (e.g. the self-delete check in `users/[id]` uses `auth.userId`).
+- **`lib/auth/requireAuth.ts`** — reads the session cookie, verifies the JWT, returns `SessionPayload | Response(401)`. Does not check `isAdmin`. Use this as the authentication step for all API routes.
+- **`requirePermission`** — looks up the user's permissions from the DB and throws `ForbiddenError` if the check fails. Imported from `lib/auth/permissions.ts`.
+
+**The `admin_dashboard: read` gate:** several resource permissions (e.g. `user: read`, `topic: read`) are also granted to the student role for future student-facing API endpoints. Using `read, admin_dashboard` as the permission check for admin GET routes avoids false positives — only the admin role has `admin_dashboard: read`. Write operations that students cannot perform (e.g. `topic: create`, `lecture: create`) use the specific resource permission directly.
 
 **Why both layout and API guard?** Next.js layouts only run when a browser navigates to a page — they do not intercept direct API calls (curl, fetch from another origin, Postman). Without the API-level guard, any unauthenticated request to `/api/admin/users` can read all emails, and a POST can create admin accounts. The layout check alone is not sufficient.
 
-**Do not add new `/api/admin/*` routes without calling `requireAdmin()` at the top of every handler.**
+**Do not add new `/api/admin/*` routes without calling `requireAuth()` + `requirePermission()` at the top of every handler.**
 
 ### Lecture publish flow (`/admin/topics/[syncId]`)
 
@@ -885,7 +913,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 ## What NOT To Do
 
 - **Don't expose `id` to API clients.** All external references use `sync_id`. Login/signup responses must not include the bigserial `id`.
-- **Don't add `/api/admin/*` routes without calling `requireAdmin()`.** The admin layout does not protect direct API calls.
+- **Don't add `/api/admin/*` routes without calling `requireAuth()` + `requirePermission()`.** The admin layout does not protect direct API calls.
 - **Don't write to `_history` tables.** Triggers handle it.
 - **Don't enable RLS or write Supabase policies.** Auth is in the API layer.
 - **Don't hard-delete rows.** Set `deleted_at`.

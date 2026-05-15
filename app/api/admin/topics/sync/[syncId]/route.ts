@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 
 export const runtime = 'edge';
 
@@ -22,8 +24,14 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ syncId: string }> }
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "read", "admin_dashboard");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   const { syncId } = await params;
   const supabase = createServerClient();

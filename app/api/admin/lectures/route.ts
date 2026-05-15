@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 
 export const runtime = 'edge';
 
@@ -8,8 +10,14 @@ export const runtime = 'edge';
 // Upserts the lecture for the given topic.
 // Returns { ok: true, id: number } so the client can store the lecture ID on first create.
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "create", "lecture");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   const body = await req.json();
   const { topicId, title, format, content, is_published } = body;
@@ -91,8 +99,14 @@ export async function POST(req: Request) {
 // Only flips the publish flag — never touches content.
 // Sets published_at when publishing for the first time; never clears it on unpublish.
 export async function PATCH(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "update", "lecture");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
 
   const body = await req.json();
   const { id, is_published } = body;
