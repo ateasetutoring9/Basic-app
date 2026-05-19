@@ -675,6 +675,85 @@ export interface Database {
         };
         Relationships: [];
       };
+      people: {
+        Row: {
+          id: number;
+          sync_id: string;
+          linked_user_id: number | null;
+          import_email: string | null;
+          first_name: string | null;
+          last_name: string | null;
+          preferred_name: string | null;
+          date_of_birth: string | null;
+          phone_number: string | null;
+          school_name: string | null;
+          state: string | null;
+          year_id: number | null;
+          photo_url: string | null;
+          created_at: string;
+          created_by_id: number | null;
+          updated_at: string;
+          updated_by_id: number | null;
+          deleted_at: string | null;
+          deleted_by_id: number | null;
+        };
+        Insert: {
+          id?: number;
+          sync_id?: string;
+          linked_user_id?: number | null;
+          import_email?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          preferred_name?: string | null;
+          date_of_birth?: string | null;
+          phone_number?: string | null;
+          school_name?: string | null;
+          state?: string | null;
+          year_id?: number | null;
+          photo_url?: string | null;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Update: {
+          id?: number;
+          sync_id?: string;
+          linked_user_id?: number | null;
+          import_email?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          preferred_name?: string | null;
+          date_of_birth?: string | null;
+          phone_number?: string | null;
+          school_name?: string | null;
+          state?: string | null;
+          year_id?: number | null;
+          photo_url?: string | null;
+          created_at?: string;
+          created_by_id?: number | null;
+          updated_at?: string;
+          updated_by_id?: number | null;
+          deleted_at?: string | null;
+          deleted_by_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "people_linked_user_id_fkey";
+            columns: ["linked_user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "people_year_id_fkey";
+            columns: ["year_id"];
+            referencedRelation: "years";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       role_permissions: {
         Row: {
           id: number;
