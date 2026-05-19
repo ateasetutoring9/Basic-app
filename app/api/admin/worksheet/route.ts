@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { requirePermission } from "@/lib/auth/permissions";
+import { ForbiddenError } from "@/lib/errors";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = 'edge';
@@ -9,8 +11,15 @@ type WorksheetUpdate = Database["public"]["Tables"]["worksheets"]["Update"];
 
 // GET ?topicId=<number> — returns { worksheet, attemptCount }
 export async function GET(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "read", "admin_dashboard");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
+
   const { searchParams } = new URL(req.url);
   const topicId = parseInt(searchParams.get("topicId") ?? "", 10);
   if (isNaN(topicId)) return NextResponse.json({ error: "Missing topicId" }, { status: 400 });
@@ -38,8 +47,15 @@ export async function GET(req: Request) {
 // POST body: { topicId, topicSyncId, title, questions, difficulty?, isPublished? }
 // Upserts the worksheet for the given topic.
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "create", "worksheet");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
+
   const body = await req.json();
   const {
     topicId,
@@ -84,8 +100,15 @@ export async function POST(req: Request) {
 
 // DELETE ?topicSyncId=<uuid> — soft-deletes the worksheet for the given topic
 export async function DELETE(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireAuth();
   if (auth instanceof Response) return auth;
+  try {
+    await requirePermission(auth, "delete", "worksheet");
+  } catch (err) {
+    if (err instanceof ForbiddenError) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw err;
+  }
+
   const { searchParams } = new URL(req.url);
   const topicSyncId = searchParams.get("topicSyncId");
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { UserCircle } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
 import LogoutButton from "@/components/LogoutButton";
@@ -23,6 +24,14 @@ export function NavAuth() {
           className="min-h-[44px] px-3 flex items-center text-sm font-medium text-muted hover:text-fg transition-colors rounded-lg hover:bg-gray-50"
         >
           My Progress
+        </Link>
+        <Link
+          href="/profile"
+          aria-label="My profile"
+          title="My profile"
+          className="min-h-[44px] w-10 flex items-center justify-center text-muted hover:text-fg hover:bg-gray-50 transition-colors rounded-lg"
+        >
+          <UserCircle size={20} aria-hidden="true" />
         </Link>
         {user.isAdmin && (
           <Link

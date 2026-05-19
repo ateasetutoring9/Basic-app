@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/Input";
 
 export const runtime = 'edge';
 
+interface RoleOption {
+  sync_id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+}
+
 interface User {
   id: number;
   sync_id: string;
@@ -15,14 +22,16 @@ interface User {
   is_admin: boolean;
   created_at: string;
   email_verified_at: string | null;
+  role: { sync_id: string; name: string; display_name: string } | null;
 }
 
 type Mode = "list" | "create" | "edit";
 
-const BLANK = { email: "", display_name: "", password: "", is_admin: false };
+const BLANK = { email: "", display_name: "", password: "", role_sync_id: "" };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("list");
   const [editing, setEditing] = useState<User | null>(null);
@@ -34,11 +43,13 @@ export default function UsersPage() {
 
   async function load() {
     setLoading(true);
-    const [usersRes, meRes] = await Promise.all([
+    const [usersRes, rolesRes, meRes] = await Promise.all([
       fetch("/api/admin/users"),
+      fetch("/api/admin/roles"),
       fetch("/api/auth/me"),
     ]);
     if (usersRes.ok) setUsers(await usersRes.json());
+    if (rolesRes.ok) setRoles(await rolesRes.json());
     if (meRes.ok) {
       const me = await meRes.json();
       setCurrentUserId(me.id);
@@ -56,13 +67,23 @@ export default function UsersPage() {
   }
 
   function openEdit(user: User) {
-    setForm({ email: user.email, display_name: user.display_name ?? "", password: "", is_admin: user.is_admin });
+    setForm({
+      email: user.email,
+      display_name: user.display_name ?? "",
+      password: "",
+      role_sync_id: user.role?.sync_id ?? "",
+    });
     setEditing(user);
     setError("");
     setMode("edit");
   }
 
   function cancel() { setMode("list"); setError(""); }
+
+  const selectedRoleDescription =
+    roles.find((r) => r.sync_id === form.role_sync_id)?.description ?? null;
+
+  const isSelfEdit = mode === "edit" && editing?.id === currentUserId;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +94,7 @@ export default function UsersPage() {
     const body: Record<string, unknown> = {
       email: form.email,
       display_name: form.display_name || null,
-      is_admin: form.is_admin,
+      role_sync_id: form.role_sync_id,
     };
 
     if (!isEdit) {
@@ -161,15 +182,34 @@ export default function UsersPage() {
               helper={mode === "edit" ? "Leave blank to keep the existing password" : undefined}
             />
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.is_admin}
-                onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.checked }))}
-                className="w-4 h-4 accent-primary"
-              />
-              <span className="text-sm font-medium text-fg">Admin access</span>
-            </label>
+            {/* Role dropdown */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="role" className="text-small font-medium text-fg">
+                Role
+              </label>
+              <select
+                id="role"
+                value={form.role_sync_id}
+                onChange={(e) => setForm((f) => ({ ...f, role_sync_id: e.target.value }))}
+                className="w-full rounded-md border border-border-strong px-3.5 py-2.5 text-base text-fg bg-card min-h-[44px] focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-colors duration-150"
+              >
+                <option value="">— No role —</option>
+                {roles.map((role) => (
+                  <option key={role.sync_id} value={role.sync_id}>
+                    {role.display_name}
+                  </option>
+                ))}
+              </select>
+              {selectedRoleDescription && (
+                <p className="text-small text-muted">{selectedRoleDescription}</p>
+              )}
+            </div>
+
+            {isSelfEdit && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                You&apos;re editing your own account. Changing your role may affect your access.
+              </p>
+            )}
           </div>
 
           {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -210,13 +250,17 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      user.is_admin
-                        ? "bg-indigo-100 text-indigo-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}>
-                      {user.is_admin ? "Admin" : "Student"}
-                    </span>
+                    {user.role ? (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        user.role.name === "admin"
+                          ? "bg-indigo-100 text-indigo-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>
+                        {user.role.display_name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted">No role</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted">{formatDate(user.created_at)}</td>
                   <td className="px-4 py-3">
